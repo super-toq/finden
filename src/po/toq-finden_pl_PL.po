@@ -1,0 +1,122 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <toq@mailbox.org>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: 1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-09 18:57+0100\n"
+"PO-Revision-Date: 2025-11-10 HO:MI+ZONE\n"
+"Last-Translator: super-toq <toq@mailbox.org>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: german/polish\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: main.c:45
+msgid "Kein gültiges Elternfenster für Alert-Dialog"
+msgstr "Brak prawidłowego okna rodziców dla okna dialogowego alertu"
+
+#: main.c:53
+msgid "Abbrechen"
+msgstr "Anuluj"
+
+#: main.c:127
+msgid "Bitte einen Suchbegriff eingeben."
+msgstr "Wpisz szukane hasło."
+
+#: main.c:140
+#, c-format
+msgid "Abbruch, Tool %s wurde nicht gefunden!"
+msgstr "Przerwanie, nie znaleziono narzędzia %s!"
+
+#: main.c:148
+#, c-format
+msgid "Root-Schalter %s\n"
+msgstr "Przełącznik root %s\n"
+
+#: main.c:148
+msgid "aktiviert"
+msgstr "aktywowany"
+
+#: main.c:148
+msgid "nicht aktiviert"
+msgstr "nieaktywny"
+
+#: main.c:154
+msgid ""
+"Service run0 ist nicht aktiv. Bitte überprüfen Sie Ihre "
+"Systemkonfiguration.\n"
+msgstr "Usługa run0 nie jest aktywna. Sprawdź konfigurację systemu.\n"
+
+#: main.c:163
+msgid "Run0 nicht aktiviert"
+msgstr "Run0 nieaktywny"
+
+#: main.c:164
+msgid ""
+"Der Service Run0 ist nicht aktiv,\n"
+"Bitte überprüfen Sie Ihre Systemkonfiguration.\n"
+msgstr ""
+"Usługa Run0 nie jest aktywna,\n"
+"sprawdź konfigurację systemu.\n"
+
+#: main.c:170
+msgid "Service run0 vorhanden\n"
+msgstr "Service run0 available\n"
+
+#: main.c:195
+msgid "Der exe_path kann nicht erstellt werden"
+msgstr "Nie można utworzyć ścieżki exe_path."
+
+#: main.c:212 main.c:228
+#, c-format
+msgid "%s gefunden in %s\n"
+msgstr "%s znaleziono w %s\n"
+
+#: main.c:236
+msgid "Kein unterstütztes Terminal gefunden!"
+msgstr "Nie znaleziono obsługiwanego terminala!"
+
+#: main.c:240
+msgid "Kein Terminal gefunden"
+msgstr "Nie znaleziono terminala"
+
+#: main.c:241
+msgid ""
+"Es konnte kein unterstütztes Terminal auf diesem System gefunden werden."
+msgstr "Nie znaleziono żadnego obsługiwanego terminala w tym systemie."
+
+#: main.c:266
+#, c-format
+msgid "Fehler beim Starten des Terminals: %s"
+msgstr "Błąd podczas uruchamiania terminala: %s"
+
+#: main.c:316
+msgid "Über Finden"
+msgstr "O Finden"
+
+#: main.c:338
+msgid "Finden statt Suchen 😉"
+msgstr "Znajdowanie zamiast Szukania 😉"
+
+#: main.c:353
+msgid "Suchbegriff eingeben …"
+msgstr "Wpisz frazę …"
+
+#: main.c:382
+msgid "  Finden  "
+msgstr "Znajdować"
+
+#: main.c:390
+msgid "Beenden"
+msgstr "Zakończ"
+
+#: main.c:422
+#, c-format
+msgid "Lokalisierung in: %s \n"
+msgstr "Lokalizacja w: %s \n"

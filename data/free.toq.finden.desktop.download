@@ -1,0 +1,15 @@
+[Desktop Entry]
+Name=Finden
+GenericName=Finden
+Comment=Little search
+Comment[en_US]=little search
+Comment[de]=Kleine Suche
+Exec=free.toq.finden
+Icon=free.toq.finden
+Terminal=false
+Type=Application
+Categories=Utility;GTK;
+Keywords=searching;search;find;
+Keywords[en_US]=searching;search;find;
+Keywords[de]=Suche;Suchen;Finden;
+StartupNotify=true

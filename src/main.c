@@ -107,10 +107,15 @@ static void show_about (GSimpleAction *action, GVariant *parameter, gpointer use
 //    adw_about_dialog_set_translator_credits (about, "toq: deutsch\n toq: englisch");
     adw_about_dialog_set_application_icon (about, "free.toq.finden");   //IconName
 
-    /* Dialog modal zum aktiven Fenster zeigen */
-    GtkWindow *parent = gtk_application_get_active_window (GTK_APPLICATION (app));
-    adw_dialog_present (ADW_DIALOG (about), GTK_WIDGET (parent));
+        /* Dialog innerhalb (modal) zum aktiven Fenster zeigen */
+//      adw_dialog_present (ADW_DIALOG (about), NULL);
+
+        /* Dialog innerhalb (modal) zum aktiven Fenster zeigen */
+//    GtkWindow *parent = gtk_application_get_active_window (GTK_APPLICATION (app));
+//    adw_dialog_present (ADW_DIALOG (about), GTK_WIDGET (parent));
+
 }
+
 /* ----- Callback Beenden-Button ----- */
 static void on_quitbtn_clicked (GtkButton *button, gpointer user_data)
 {
@@ -300,7 +305,7 @@ static void on_activate (AdwApplication *app, gpointer)
     AdwApplicationWindow *win = ADW_APPLICATION_WINDOW (adw_application_window_new (GTK_APPLICATION (app))); 
 
     gtk_window_set_title (GTK_WINDOW(win), "Finden");   // Fenstertitel
-    gtk_window_set_default_size (GTK_WINDOW(win), 480, 320);  // Standard-Fenstergröße
+    gtk_window_set_default_size (GTK_WINDOW(win), 490, 260);  // Standard-Fenstergröße
     gtk_window_present (GTK_WINDOW(win));                     // Fenster anzeigen lassen
 
     /* ----- ToolbarView (Root‑Widget) erstellt und als Inhalt des Fensters festgelegt -- */

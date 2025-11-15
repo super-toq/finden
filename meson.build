@@ -42,6 +42,8 @@ subdir('src/miniterm')
 # Install Icon (App ID)
 install_data(join_paths(data_dir, 'free.toq.finden.svg'),
  install_dir : join_paths(get_option('prefix'), 'share', 'icons', 'hicolor', 'scalable', 'apps'))
+install_data(join_paths(data_dir, 'free.toq.miniterm.svg'),
+ install_dir : join_paths(get_option('prefix'), 'share', 'icons', 'hicolor', 'scalable', 'apps'))
 
 # Install .desktop file (App ID)
 install_data(join_paths(data_dir, 'free.toq.finden.desktop.download'),

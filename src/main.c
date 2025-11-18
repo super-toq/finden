@@ -8,7 +8,7 @@
  * Please note:
  * The Use of this code and execution of the applications is at your own risk, I accept no liability!
  *
- * Version 0.7.5
+ * Version 0.8
  */
 #include <glib.h>
 #include <gtk/gtk.h>
@@ -19,6 +19,13 @@
 
 
 /* --- globale Referenzen --- */
+/* Erzeugen eines neuen Strukturtyps mit Namen UiRefs */
+typedef struct {     // Widget-Zeigern erstellten... 
+    GtkEditable     *search_entry; // zeigt auf GtkEditable ...
+    GtkCheckButton  *root_check;
+    GtkCheckButton  *snapshots_check;
+} UiRefs;
+
 static char   *app_dir    = NULL;     // Ermit. den aktuellen Arbeitsverzeichnis-Pfad
 static gchar *glob_term_path = NULL;  // /erminal Pfad global ermittelt
 static const gchar *glob_term_name = NULL; // term. Name ...
@@ -26,12 +33,13 @@ static const char *flatpak_id  = NULL;
 static gboolean    is_flatpak = FALSE; // 1 oder 0 ausgeben
 
 
+
 /* ---------- Initialisierungsfunktion ---------- */
 static void init_environment(void)
 {
 flatpak_id = getenv("FLATPAK_ID"); //siehe G.Ref.
 is_flatpak = (flatpak_id != NULL && flatpak_id[0] != '\0');
-//is_flatpak = 1; // zum Testen des Verhaltens einer Flatpak App
+is_flatpak = 1; // zum Testen des Verhaltens einer Flatpak App
 
     /* Pfad zum eigenen Executable Verzeichnis */
     gchar *exe_path = g_file_read_link("/proc/self/exe", NULL);
@@ -78,8 +86,6 @@ static void on_alert_dialog_response (AdwAlertDialog *dialog,
         g_print ("Dialog btn - ok\n");
     else
         g_print ("Dialog btn - cancel\n");
-
-    /* Hinweis, hier kein g_object_unref(dialog)! */
 }
 
 /* ----- Callback Alert-Dialog anzeigen (generisch) ----- */
@@ -117,7 +123,7 @@ static void show_about (GSimpleAction *action, GVariant *parameter, gpointer use
     AdwAboutDialog *about = ADW_ABOUT_DIALOG (adw_about_dialog_new ());
     //adw_about_dialog_set_body(about, "Hierbei handelt es sich um ein klitzekleines Testprojekt."); //nicht in meiner adw Version?
     adw_about_dialog_set_application_name (about, "Finden");
-    adw_about_dialog_set_version (about, "0.7.5");
+    adw_about_dialog_set_version (about, "0.8");
     adw_about_dialog_set_developer_name (about, "toq (super-toq)");
     adw_about_dialog_set_website (about, "https://github.com/super-toq");
 
@@ -205,25 +211,18 @@ void on_check_button_toggled(GtkToggleButton *toggle_button, gpointer user_data)
 /* ----- Callback Suchfunktion ausführen | Hauptfunktion --------------------------------- */
 static void on_search_button_clicked (GtkButton *button, gpointer user_data)
 {
-    GtkEntry *search_entry = GTK_ENTRY (user_data);
-    const gchar *query = gtk_editable_get_text (GTK_EDITABLE (search_entry));
+    
+    UiRefs *refs = (UiRefs *)user_data; // Behandle user_data als UiRefs*.
+    if (!refs) return; // Sicherheitscheck, kein gültiger Zeiger, Abbruch vor Crash.
 
+
+    const gchar *query = gtk_editable_get_text(GTK_EDITABLE(refs->search_entry));
     if (!query || *query == '\0') {
-        g_print (_("Bitte einen Suchbegriff eingeben.\n"));
+        g_print(_("Bitte einen Suchbegriff eingeben.\n"));
         return;
     }
 
     /* 0. ---- Struktur dient für "Schalter" ---- */
-    typedef enum 
-    {
-        ROOT_OFF = 0,
-        FLATPAK_DISABLE,
-        ROOT_NO_RUN0,
-        ROOT_RUN0_OK,
-        ROOT_RUN0_SNAPSHOTS_OK
-    } 
-    RootMode;
-    RootMode mode = ROOT_OFF;
 
     /* 1. ---- Tool-"find"‑ermitteln ---------------------------------------------------- */
     const gchar *find_prog = "find";
@@ -239,27 +238,35 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
         return;
     }
 
-    /* 2.0 ---- Checkboxen Deklaration vor Prüfung -----------------------------------------*/
-    GtkCheckButton *root_check = GTK_CHECK_BUTTON(g_object_get_data(G_OBJECT(button), "root_check"));
-    GtkCheckButton *snapshots_check = GTK_CHECK_BUTTON(g_object_get_data(G_OBJECT(button), "snapshots_check"));
+    /* 2. ---- Prüfen, ob die Checkboxen aktiviert ---- */
+        gboolean root_active = FALSE;
+        gboolean snapshots_active = FALSE;
+  
+        if (GTK_IS_CHECK_BUTTON(refs->root_check))
+            root_active = gtk_check_button_get_active(refs->root_check);
+        if (GTK_IS_CHECK_BUTTON(refs->snapshots_check))
+            snapshots_active = gtk_check_button_get_active(refs->snapshots_check);
 
-    /* 2.1 ---- Prüfen, ob die Checkboxen aktiviert ---- */
-    gboolean root_active = FALSE;
-    if (GTK_IS_CHECK_BUTTON(root_check))
-        root_active = gtk_check_button_get_active(root_check);
 
-    gboolean snapshots_active = FALSE;
-    if (GTK_IS_CHECK_BUTTON(snapshots_check))
-        snapshots_active = gtk_check_button_get_active(snapshots_check);
-
-    /* 2.2 ---- Debug-Ausgaben ------------------------ */
+    /* 2.1 ---- Debug-Ausgaben ------------------------ */
     g_print(_("Root-Schalter %s\n"),
         root_active ? _("aktiviert") : _("nicht aktiviert"));
 
     g_print(_("Snapshots-Schalter %s\n"),
         snapshots_active ? _("aktiviert") : _("nicht aktiviert"));
 
-    /* 3.0 ---- Modus bestimmen ----------------------  */
+    /* 3. ---- Modus bestimmen ----------------------  */
+    typedef enum 
+    {
+        ROOT_OFF = 0,
+        FLATPAK_DISABLE,
+        ROOT_NO_RUN0,
+        ROOT_RUN0_OK,
+        ROOT_RUN0_SNAPSHOTS_OK
+    } 
+    RootMode;
+    RootMode mode = ROOT_OFF;
+
     if (!root_active) {
         /* 3.1  ROOT= 0 */
         mode = ROOT_OFF;
@@ -282,7 +289,7 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
     }
 
     /* ---- 4. Schalter aus 3.x - für ROOT, RUN0, SNAPSHOTS + Find-Kommande ---- */
-    void (*cmd_action)(const char *, const char *) = NULL; 
+    void (*cmd_action)(const char *, const char *) = NULL;
     cmd_action = action_A; // Find-Kommando [A] wird in "static void action_A" definiert
     // Diese Maßnahme war notwendig, da sonst nested-Fuction innerhalb einer Funktion entsteht!
 
@@ -299,11 +306,10 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
             g_print(_("Anwendung ist flatpak Version, Optionen sind deaktiviert.\n"));
             
             /* Checkboxen zurücksetzen und deaktivieren */
-            gtk_check_button_set_active(root_check, FALSE);
-            gtk_widget_set_sensitive(GTK_WIDGET(root_check), FALSE);
-            gtk_check_button_set_active(snapshots_check, FALSE);
-            gtk_widget_set_sensitive(GTK_WIDGET(snapshots_check), FALSE);
-            root_active = FALSE;
+            gtk_check_button_set_active(refs->root_check, FALSE);
+            gtk_widget_set_sensitive(GTK_WIDGET(refs->root_check), FALSE);
+            gtk_check_button_set_active(refs->snapshots_check, FALSE);
+            gtk_widget_set_sensitive(GTK_WIDGET(refs->snapshots_check), FALSE);
             /* find Kommando [A] verwenden  */
             cmd_action = action_A; // action_A wird in "static void action_A" definiert
             break;
@@ -314,11 +320,11 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
             g_print(_("Service run0 ist nicht aktiv.\n"));
 
             /* Checkbox zurücksetzen */
-            gtk_check_button_set_active(root_check, FALSE);
-            gtk_widget_set_sensitive(GTK_WIDGET(root_check), FALSE);
+            gtk_check_button_set_active(refs->root_check, FALSE);
+            gtk_widget_set_sensitive(GTK_WIDGET(refs->root_check), FALSE);
 
             /* ALert-Dialog aufrufen */
-            GtkWindow *parent = GTK_WINDOW (gtk_widget_get_root(GTK_WIDGET(search_entry)));
+            GtkWindow *parent = GTK_WINDOW (gtk_widget_get_root(GTK_WIDGET(refs->search_entry)));
             if (parent)
             {
                 show_alert_dialog(parent, _("Run0 nicht aktiviert"),
@@ -342,11 +348,12 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
             g_print(_("Service run0 vorhanden.\nPfad für .snapshots aktiv.\n"));
             /* find Kommando [C] verwenden  */
             cmd_action = action_C; // action_C wird in "static void action_C" definiert
-    
+            break;
     } // Switch(mode) Ende
 
     /* 5. ---- Aktion für das find-Kommando aufrufen ---- */
-    if (cmd_action) cmd_action(find_path, query);  // Aktion aufrufen
+    if (cmd_action) cmd_action(find_path, query);  
+
  /* Hinweis - cmd_action beinhaltet:
     action_A:
     "/usr/bin/find ~/ -iname \"*<query>*\""
@@ -357,6 +364,7 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
     action_C:
     "run0 --background=0 --unit=finden --via-shell /usr/bin/find / -iname \"*<query>*\""
  */
+    g_free(find_path);
 
     /* 6. ---- Terminal im System ermitteln ---- */
 
@@ -529,9 +537,7 @@ static void on_activate (AdwApplication *app, gpointer)
         gtk_widget_set_halign (search_entry, GTK_ALIGN_FILL);
         gtk_widget_set_size_request (search_entry, 300, -1);
 
-        g_signal_connect (search_entry, "activate",
-                          G_CALLBACK (on_search_button_clicked),
-                          search_entry);
+
     }
 
     /* --- Horizontales Box-Widget für Suchleiste hier erzeugen ---------------------------- */
@@ -588,8 +594,20 @@ static void on_activate (AdwApplication *app, gpointer)
 
     /* --- Schaltfläche-Finden:  ------------------------------------------------- */
     GtkWidget *search_button = gtk_button_new_with_label (_("  Finden  "));
-    g_signal_connect (search_button, "clicked",
-                      G_CALLBACK (on_search_button_clicked), search_entry); //user_data = entry
+
+    /* --- Kontext-Struct-Block für die Initialisierung einer UI-Referenzstruktur --- */
+    /* "refs" zeigt auf neu erstellten “Behälter” für UI-Elemente */
+    UiRefs *refs = g_new0(UiRefs, 1); // Speicher für Struct anlegen, erzeuge 1 UiRefs im Heap.
+    refs->search_entry    = GTK_EDITABLE(search_entry); // Pointer zum Eingabefeld im Struct.
+    refs->root_check      = GTK_CHECK_BUTTON(root_check); // Pointer zur Root-Checkbox.
+    refs->snapshots_check = GTK_CHECK_BUTTON(snapshots_check); // Pointer zur Snapshots-Checkbox.
+
+    /* --- Schaltfläche verbinden --- */
+    g_signal_connect(search_button, "clicked",
+                      G_CALLBACK(on_search_button_clicked), refs); //user_data = refs
+
+    /* --- Suchleiste verbinden für ENTER Taste --- */
+    g_signal_connect(search_entry,  "activate", G_CALLBACK(on_search_button_clicked), refs);
 
     /* ----- Schaltfläche Beenden erzeugen ----- */
     GtkWidget *quit_button = gtk_button_new_with_label(_("Beenden"));

@@ -1,4 +1,4 @@
-/* FINDEN is part of a learning project;
+/* FINDEN is part of my learning project;
  * toq 2025  LICENSE: BSD 2-Clause "Simplified"
  *
  *
@@ -8,7 +8,7 @@
  * Please note:
  * The Use of this code and execution of the applications is at your own risk, I accept no liability!
  *
- * Version 0.8.1
+ * Version 0.8.2
  */
 #include <glib.h>
 #include <gtk/gtk.h>
@@ -27,7 +27,7 @@ typedef struct {     // Widget-Zeigern erstellten...
 } UiRefs;
 
 static char   *app_dir    = NULL;     // Ermit. den aktuellen Arbeitsverzeichnis-Pfad
-static gchar *glob_term_path = NULL;  // /erminal Pfad global ermittelt
+static gchar *glob_term_path = NULL;  // terminal Pfad global ermittelt
 static const gchar *glob_term_name = NULL; // term. Name ...
 static const char *flatpak_id  = NULL;  
 static gboolean    is_flatpak = FALSE; // 1 oder 0 ausgeben
@@ -123,7 +123,7 @@ static void show_about (GSimpleAction *action, GVariant *parameter, gpointer use
     AdwAboutDialog *about = ADW_ABOUT_DIALOG (adw_about_dialog_new ());
     //adw_about_dialog_set_body(about, "Hierbei handelt es sich um ein klitzekleines Testprojekt."); //nicht in meiner adw Version?
     adw_about_dialog_set_application_name (about, "Finden");
-    adw_about_dialog_set_version (about, "0.8.1");
+    adw_about_dialog_set_version (about, "0.8.2");
     adw_about_dialog_set_developer_name (about, "toq (super-toq)");
     adw_about_dialog_set_website (about, "https://github.com/super-toq");
 
@@ -151,7 +151,7 @@ static void show_about (GSimpleAction *action, GVariant *parameter, gpointer use
         "OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n\n"
         "Application Icon by SVG. \n"
         "https://www.svgrepo.com \n"
-        "Respect and thanks to SVG for free use. \n"
+        "Thanks to SVG for sharing their free icons, we appreciate your generosity and respect your work.\n"
         "LICENSE for the icon: \n"
         "CC Attribution License \n"
         "Follow the link to view details of the CC Attribution License: \n"
@@ -452,7 +452,7 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
 
 /* -------------------------------------------------------------*/
 /*       Aktivierungshandler                                    */
-/* ----- CALLBACK-Funktion, wenn Anwendung aktiviert wird ----- */
+/* -------------------------------------------------------------*/
 static void on_activate (AdwApplication *app, gpointer)
 {
     /* ----- Adwaita-Fenster ------------------------ */
@@ -460,6 +460,7 @@ static void on_activate (AdwApplication *app, gpointer)
 
     gtk_window_set_title (GTK_WINDOW(adw_win), "Finden");         // Fenstertitel
     gtk_window_set_default_size (GTK_WINDOW(adw_win), 480, 280);  // Standard-Fenstergröße
+    gtk_window_set_resizable (GTK_WINDOW (adw_win), FALSE);       // Skalierung nicht erlauben
     gtk_window_present (GTK_WINDOW(adw_win));                     // Fenster anzeigen lassen
 
     /* ----- ToolbarView (Root‑Widget) erstellt und als Inhalt des Fensters festgelegt -- */

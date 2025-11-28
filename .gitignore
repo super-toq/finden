@@ -4,4 +4,5 @@ _build-dir/
 .flatpak-builder/
 _tmp/
 _repo/
+src/finden
 free.toq.finden.flatpak

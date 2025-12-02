@@ -3,22 +3,25 @@
  *
  *
  *
- * gcc $(pkg-config --cflags gtk4 libadwaita-1) -o finden main.c free.toq.finden.gresource.c $(pkg-config --libs gtk4 libadwaita-1)
+ * gcc $(pkg-config --cflags gtk4 libadwaita-1) -o finden main.c config.c free.toq.finden.gresource.c $(pkg-config --libs gtk4 libadwaita-1)
  *
  * Please note:
  * The Use of this code and execution of the applications is at your own risk, I accept no liability!
  *
- * Version 0.8.7
+ * Version 0.9.1
  */
 #include <glib.h>
 #include <gtk/gtk.h>
 #include <adwaita.h>
-#include "icon-gresource.h"
 #include <locale.h> 
 #include <glib/gi18n.h>
 
+#include "icon-gresource.h"
+#include "config.h"
+
 
 /* --- globale Referenzen --- */
+
 /* Erzeugen eines neuen Strukturtyps mit Namen UiRefs */
 typedef struct {     // Widget-Zeigern erstellten... 
     GtkEditable     *search_entry; // zeigt auf GtkEditable ...
@@ -26,61 +29,77 @@ typedef struct {     // Widget-Zeigern erstellten...
     GtkCheckButton  *snapshots_check;
 } UiRefs;
 
-static char   *app_dir    = NULL;     // Ermit. den aktuellen Arbeitsverzeichnis-Pfad
-static gchar *glob_term_path = NULL;  // terminal Pfad global ermittelt
-static const gchar *glob_term_name = NULL; // term. Name ...
-static const char *flatpak_id  = NULL;  
-static gboolean    is_flatpak = FALSE; // 1 oder 0 ausgeben
+static gchar       *glob_term_path = NULL;  // terminal Pfad global ermittelt
+static const gchar *glob_term_name = NULL;  // term. Name ...
+static gchar       *glob_path_miniterm = NULL;  // miniterm Pfad
+static const gchar *glob_mini     = NULL;   // miniterm local
+static const char  *flatpak_id     = NULL;  // ID...
+static gboolean    is_flatpak     = FALSE;  // 1 oder 0 ausgeben
 
+/* Hinweis, aus config.c: 
+  g_cfg.miniterm_enable
+  g_cfg.test_enable
+*/
 
-
-/* ---------- Initialisierungsfunktion ---------- */
-static void init_environment(void)
+/* ---------- Initialisierungsfunktion ----------------------- */
+static void init_flatpak(void)
 {
 flatpak_id = getenv("FLATPAK_ID"); //siehe G.Ref.
 is_flatpak = (flatpak_id != NULL && flatpak_id[0] != '\0');
 //is_flatpak = 1; // zum Testen des Verhaltens einer Flatpak App
-
-    /* Pfad zum eigenen Executable Verzeichnis */
-    gchar *exe_path = g_file_read_link("/proc/self/exe", NULL);
-    if (!exe_path) {
-        g_warning(_("Der exe_path kann nicht erstellt werden.\n"));
-        app_dir = NULL;
-        return;
-    }
-    /* Eigenen Pfad ermitteln: */
-    app_dir = g_path_get_dirname(exe_path); // =Global
-    g_print (_("Anwendungspfad: %s \n"), app_dir);
-    g_free(exe_path);
 }
 
-/* ---------- miniterm suchen ------------------- */
-static void find_miniterm(void)
+
+/* ---------- Terminals ermitteln ------------------------------------------------------- */
+static void find_terminals(void)
 {
- /* Abbruch, falls init_environment fehlschlägt */
-if (!app_dir) {g_warning (_("[G] Abbruch, Variable 'app_dir' wurde nicht gesetzt!\n")); return;}   
+    /* ----- 1. Miniterm-Pfad ermitteln ----------------------------- */
+    const gchar *app_dir = get_app_dir();   // app_dir aus config.c holen
+    /* --- 1.1 Abbruch, falls init_environment fehlschlägt */
+    if (!app_dir) {g_warning ("[t] Abort: variable app_dir was not set!\n"); 
+    return; } // gesamte Funktion beenden bei fehlenden app_dir
 
- /* 1. Pfad zu miniterm im selben Verzeichnis suchen */
-    gchar *miniterm_path = g_build_filename(app_dir, "free.toq.miniterm", NULL);
-    g_print (_("miniterm in Umgebung gefunden: %s \n"), miniterm_path); // testen
-    g_free(app_dir);
+    /* --- 1.2 Pfad zu miniterm im selben Verzeichnis suchen */
+    gchar *miniterm_path = g_build_filename(app_dir, "toq-miniterm", NULL);
 
-
-    /* 2. Prüfen, ob miniterm existiert und ausführbar ist */
+    /* --- 1.3 Prüfen, ob miniterm existiert und ausführbar ist */
     if (g_file_test(miniterm_path, G_FILE_TEST_IS_EXECUTABLE)) {
-        glob_term_path = g_strdup(miniterm_path);
-        glob_term_name = "free.toq.miniterm";
-        g_print(_(" %s gefunden in %s\n"), glob_term_name, glob_term_path);
-        g_free(miniterm_path);
-        return;                     // miniterm gefunden
-    }
+        glob_path_miniterm = g_strdup(miniterm_path);
+        glob_mini          = "toq-miniterm";
 
-    g_free(miniterm_path); 
+        g_print("[t1] %s found in %s\n", glob_mini, glob_path_miniterm);
+        g_free(miniterm_path);
+
+    }  else {
+         glob_path_miniterm = g_find_program_in_path ("toq-miniterm");
+         glob_mini          = "toq-miniterm";
+         g_print("[t1] %s found in %s\n", glob_mini, glob_path_miniterm);
+    }
+    /* ----- 2. System-Terminal ermitteln -------------------------- */
+    if (!glob_term_name) {
+            static const gchar *terminals[] = {
+            "konsole",
+            "gnome-terminal",
+            "kgx",
+            "xterm",
+            "terminator",
+            "kitty",
+            "xfce4-terminal",
+            NULL
+        };
+        for (int i = 0; terminals[i] != NULL; i++) {
+            glob_term_path = g_find_program_in_path (terminals[i]);
+            if (glob_term_path) {
+                glob_term_name  = terminals[i];
+                g_print (_("[t2] %s found in %s\n"), glob_term_name , glob_term_path);
+                break;
+            }
+        }
+    }
 }
+
 /* ----- Message / Alert-Dialog Generisch,  show_alert_dialog (parent,*Titel, *Inhalttext) ----- */
-static void on_alert_dialog_response (AdwAlertDialog *dialog,
-                          const char     *response,
-                          gpointer        user_data)
+static void on_alert_dialog_response (AdwAlertDialog *dialog, const char *response, gpointer user_data)
 {
     if (g_strcmp0 (response, "ok") == 0)
         g_print ("Dialog btn - ok\n");
@@ -88,14 +107,11 @@ static void on_alert_dialog_response (AdwAlertDialog *dialog,
         g_print ("Dialog btn - cancel\n");
 }
 
-/* ----- Callback Alert-Dialog anzeigen (generisch) ----- */
-static void
-show_alert_dialog (GtkWindow   *parent,
-                   const char  *title,
-                   const char  *body)
+/* ----- Callback Alert-Dialog anzeigen (generisch) ------------------------------------- */
+static void show_alert_dialog (GtkWindow *parent, const char *title, const char *body)
 {
     if (!parent || !GTK_IS_WINDOW (parent)) {
-        g_warning (_("Kein gültiges Elternfenster für Alert-Dialog.\n"));
+        g_warning ("No valid parent window for alert dialog!\n");
         return;
     }
 
@@ -123,7 +139,7 @@ static void show_about (GSimpleAction *action, GVariant *parameter, gpointer use
     AdwAboutDialog *about = ADW_ABOUT_DIALOG (adw_about_dialog_new ());
     //adw_about_dialog_set_body(about, "Hierbei handelt es sich um ein klitzekleines Testprojekt."); //nicht in meiner adw Version?
     adw_about_dialog_set_application_name (about, "Finden");
-    adw_about_dialog_set_version (about, "0.8.7_2");
+    adw_about_dialog_set_version (about, "0.9.1");
     adw_about_dialog_set_developer_name (about, "toq");
     adw_about_dialog_set_website (about, "https://github.com/super-toq");
 
@@ -166,50 +182,67 @@ static void show_about (GSimpleAction *action, GVariant *parameter, gpointer use
     adw_dialog_present(ADW_DIALOG(about), GTK_WIDGET(parent));
 }//Ende About-Dialog
 
+/* ----- In Einstellungen Miniterm-Checkbox-Toggle -------------------------------------- */
+static void on_settings_miniterm_check_toggled (GtkCheckButton *btn, gpointer user_data)
+{
+    gboolean active = gtk_check_button_get_active (btn);
+    g_cfg.miniterm_enable = active; // globale Struktur aktualisieren
+    save_config ();                 // neun Wert sofort in Datei speichern
+    init_config ();                 // neue Config-Werte laden
+}
 /* ----- Einstellungen-Page ------------------------------------------------------------- */
 static void show_settings (GSimpleAction *action, GVariant *parameter, gpointer user_data)
 {
-    AdwNavigationView *nav = ADW_NAVIGATION_VIEW(user_data);
-
-    /* --- Inhalt der Settings-Seite --- */
-    GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-    gtk_widget_set_margin_top(content, 24);
-    gtk_widget_set_margin_start(content, 24);
-
-    GtkWidget *label = gtk_label_new("Einstellungen ...");
-    gtk_widget_add_css_class(label, "title-4");
-    gtk_box_append(GTK_BOX(content), label);
-
+    AdwNavigationView *settings_nav = ADW_NAVIGATION_VIEW(user_data);
 
     /* --- ToolbarView für Settings-Seite --- */
     AdwToolbarView *settings_toolbar = ADW_TOOLBAR_VIEW(adw_toolbar_view_new());
 
     /* Headerbar erzeugen */
     AdwHeaderBar *settings_header = ADW_HEADER_BAR(adw_header_bar_new());
-    GtkWidget *settings_label = gtk_label_new("Einstellungen");
+    GtkWidget *settings_label = gtk_label_new(_("Einstellungen"));
     gtk_widget_add_css_class(settings_label, "heading");
     adw_header_bar_set_title_widget(settings_header, settings_label);
 
     /* Headerbar einfügen */
     adw_toolbar_view_add_top_bar(settings_toolbar, GTK_WIDGET(settings_header));
 
+    /* --- Inhalt der Settings-Seite --- */
+    GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_widget_set_margin_top(content, 24);
+    gtk_widget_set_margin_start(content, 24);
+
+    /* Settings */
+    GtkWidget *label = gtk_label_new(_("Terminaleinstellungen:"));
+    gtk_widget_add_css_class(label, "title-4");
+    gtk_box_append(GTK_BOX(content), label);
+
+
+GtkWidget *miniterm_check = gtk_check_button_new_with_label (_("Miniterm benutzen"));
+gtk_check_button_set_active (GTK_CHECK_BUTTON (miniterm_check),
+                             g_cfg.miniterm_enable);   /* aktueller Zustand */
+g_signal_connect (miniterm_check, "toggled",
+                  G_CALLBACK (on_settings_miniterm_check_toggled), NULL);
+gtk_box_append (GTK_BOX (content), miniterm_check);
+
+
     /* Inhalt einsetzen */
     adw_toolbar_view_set_content(settings_toolbar, content);
 
     /* NavigationPage anlegen */
     AdwNavigationPage *settings_page =
-        adw_navigation_page_new(GTK_WIDGET(settings_toolbar), "Einstellungen");
+        adw_navigation_page_new(GTK_WIDGET(settings_toolbar), _("Einstellungen"));
     gtk_widget_set_size_request(GTK_WIDGET(settings_page), 600, 280);
 
     /* Rein in den Stack */
-    adw_navigation_view_push(nav, settings_page);
+    adw_navigation_view_push(settings_nav, settings_page);
 }// Ende Einstellungen-Fenster
 
 
 
 
-/* ---- "find"-Kommando zusammenbauen ---> 
-     Außerhalb von on_search_button_clicked, da sonst "nested-functions" innerhalb einer Funktion ensteht! */
+/* ---- Kommando "find" zusammenbauen ---> 
+ Außerhalb von on_search_button_clicked, da sonst "nested-functions" innerhalb einer Funktion ensteht! --- */
     
 gchar *find_cmd = NULL;
 
@@ -299,7 +332,7 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
             find_path = g_strdup (fallback);
     }
     if (!find_path) {
-        g_warning (_("Abbruch, Tool %s wurde nicht gefunden!\n"), find_prog);
+        g_warning ("Abort: tool %s not found!\n", find_prog);
         // Alert-Dialog noch einfügen !!!
         return;
     }
@@ -315,11 +348,11 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
 
 
     /* 2.1 ---- Debug-Ausgaben ------------------------ */
-    g_print(_("Root-Schalter %s\n"),
-        root_active ? _("aktiviert") : _("nicht aktiviert"));
+    g_print("switch root: %s\n",
+        root_active ? "true" : "false");
 
-    g_print(_("Snapshots-Schalter %s\n"),
-        snapshots_active ? _("aktiviert") : _("nicht aktiviert"));
+    g_print("switch snapshots: %s\n",
+        snapshots_active ? "true" : "false");
 
     /* 3. ---- Modus bestimmen ----------------------  */
     typedef enum 
@@ -362,14 +395,14 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
     switch (mode)
     {
         case ROOT_OFF:  // ROOT=0
-            g_print(_("Suchfunktion wird nur im Homeverzeichnis durchgeführt.\n")); // testen
+            g_print("Search function is performed only in user directory\n"); // testen
             /* find Kommando [A] verwenden  */
             cmd_action = action_A; // action_A wird in "static void action_A" definiert
             break;
 
         case FLATPAK_DISABLE: // FLATPAK=1 - Optionen deaktivieren
         {    
-            g_print(_("Anwendung ist flatpak Version, Optionen sind deaktiviert.\n"));
+            g_print("Application is Flatpak version; options are disabled!\n");
             
             /* Checkboxen zurücksetzen und deaktivieren */
             gtk_check_button_set_active(refs->root_check, FALSE);
@@ -383,7 +416,7 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
 
         case ROOT_NO_RUN0: // ROOT=1, RUN0=0, somit auch keine Snapshots
         {
-            g_print(_("Service run0 ist nicht aktiv.\n"));
+            g_print("Service run0 not enabled\n");
 
             /* Checkbox zurücksetzen */
             gtk_check_button_set_active(refs->root_check, FALSE);
@@ -405,13 +438,13 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
         }
 
        case ROOT_RUN0_OK: // ROOT=1, RUN0=1, SNAPSHOTS=0
-            g_print(_("Service run0 vorhanden.\n"));
+            g_print("Service run0 is available\n");
             /* find Kommando [B] verwenden  */
             cmd_action = action_B; // action_B wird in "static void action_B" definiert
             break;
 
        case ROOT_RUN0_SNAPSHOTS_OK: // ROOT=1, RUN0=1, SNAPSHOTS=1
-            g_print(_("Service run0 vorhanden.\nPfad für .snapshots aktiv.\n"));
+            g_print("Service run0 is available\nSearching in path \".snapshots\" is enabled\n");
             /* find Kommando [C] verwenden  */
             cmd_action = action_C; // action_C wird in "static void action_C" definiert
             break;
@@ -432,50 +465,42 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
  */
     g_free(find_path);
 
-    /* 6. ---- Terminal im System ermitteln ---- */
-
-    /* Erstelle Pfad zu miniterm */
+    /* 6. ---- Terminal im System auswählen --------------- */
     gchar *term_path = NULL;
     const gchar *term_name = NULL;
 
-    if (glob_term_name && g_str_has_prefix(glob_term_name, "free.toq.miniterm")) {
-        g_print (_("[L1] %s gefunden in %s\n"), glob_term_name, glob_term_path);
-        term_path = glob_term_path;
-    } else {
-        static const gchar *terminals[] = {
-            "free.toq.miniterm",
-            "konsole",
-            "gnome-terminal2",
-            "kgx",
-            "xterm",
-            "terminator",
-            "kitty",
-            NULL
-        };
-        for (int i = 0; terminals[i] != NULL; i++) {
-            term_path = g_find_program_in_path (terminals[i]);
-            if (term_path) {
-                term_name = terminals[i];
-                g_print (_("[L2] %s gefunden in %s\n"), term_name, term_path);
-                break;
-            }
+   /* t1. miniterm = true  */
+   if (g_cfg.miniterm_enable) {
+        printf("[t] In settings, miniterm is enabled!\n");
+        /* t1.1 miniterm-Pfad global hinterlegt? */
+        if (glob_mini && g_str_has_prefix(glob_mini, "toq-miniterm")) {
+            /* t1.2 miniterm-Pfad als Terminal-Pfad übergeben */
+            term_path = glob_path_miniterm;
         }
-    }
-//    g_free (mini_path);
+   //g_print("[t] Known path to miniterm = %s\n", term_path); // testen
+   } else {
 
-    if (!term_path) {
-        g_warning (_("Kein unterstütztes Terminal gefunden!\n"));
-        GtkWindow *parent = GTK_WINDOW (gtk_widget_get_root (GTK_WIDGET (button)));
-        if (parent)
-            show_alert_dialog (parent,
+      /* t2. miniterm = false  */
+      term_path = glob_term_path;
+      term_name = glob_term_name;
+
+      /* kein Terminal */
+      if (!term_path) {
+            g_warning ("[t] No supported terminal found!\n");
+            GtkWindow *parent = GTK_WINDOW (gtk_widget_get_root (GTK_WIDGET (button)));
+            /* Alert Dialog */
+            if (parent)
+                show_alert_dialog (parent,
                                _("Kein Terminal gefunden"),
                                _("Es konnte kein unterstütztes Terminal auf diesem System gefunden werden."));
-        g_free (find_cmd);
-        return;
-    }
+            g_free (find_cmd);
+            return;
+      }
+   }
+
 
     /* 7. ---- Terminal starten ---------------------------------------------------------------------- */
-    /* mit "exec bash" neuer Bash-Shell starten, damit Term. aktiv halten */
+             /* mit "exec bash" neuer Bash-Shell starten, dadurch Terminal aktiv halten */
     gchar *full_cmd = g_strdup_printf ("%s; exec bash", find_cmd);
 //    g_print ("full_cmd: %s\n", full_cmd);  //testen
 
@@ -494,7 +519,7 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
     GError *error = NULL;
     gchar *cwd = g_get_current_dir ();   /* Arbeitsverzeichnis */
     if (!g_spawn_async (cwd, argv, NULL, G_SPAWN_DEFAULT, NULL, NULL, NULL, &error)) {
-        g_warning (_("Fehler beim Starten des Terminals: %s"), error->message);
+        g_warning ("Error starting the terminal: %s", error->message);
         g_error_free (error);
     }
     g_free (cwd);
@@ -521,28 +546,28 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
 /* -------------------------------------------------------------*/
 static void on_activate (AdwApplication *app, gpointer)
 {
-    /* ----- Adwaita-Fenster ------------------------ */
+    /* ----- Adwaita-Fenster ------------------------------------------------------------- */
     AdwApplicationWindow *adw_win = ADW_APPLICATION_WINDOW (adw_application_window_new (GTK_APPLICATION (app))); 
 
     gtk_window_set_title (GTK_WINDOW(adw_win), "Finden");         // WM-Titel
     gtk_window_set_default_size (GTK_WINDOW(adw_win), 600, 280);  // Standard-Fenstergröße
     gtk_window_set_resizable (GTK_WINDOW (adw_win), FALSE);       // Skalierung nicht erlauben
 
-    /* ----- Navigation Root ----- */
+    /* --- Navigation Root ----- */
     AdwNavigationView *nav_view = ADW_NAVIGATION_VIEW(adw_navigation_view_new());
     adw_application_window_set_content (adw_win, GTK_WIDGET(nav_view));
 
-    /* ----- ToolbarBarView als Hauptseite ----- */
+    /* --- ToolbarBarView als Hauptseite ----- */
     AdwToolbarView *toolbar_view = ADW_TOOLBAR_VIEW(adw_toolbar_view_new());
 
-    /* ----- HeaderBar mit TitelWidget erstellt und dem ToolbarView hinzugefügt ------------ */
+    /* --- HeaderBar mit TitelWidget erstellt und dem ToolbarView hinzugefügt ------------ */
     AdwHeaderBar *header = ADW_HEADER_BAR (adw_header_bar_new());
     GtkWidget * title_label = gtk_label_new ("Finden");                 // Label für Fenstertitel
     gtk_widget_add_css_class (title_label, "heading");                  // .heading class
     adw_header_bar_set_title_widget (ADW_HEADER_BAR (header), GTK_WIDGET (title_label)); // Label einsetzen
     adw_toolbar_view_add_top_bar (toolbar_view, GTK_WIDGET (header));   // Header‑Bar zur Toolbar‑View hinzuf
 
-    /* Nav_View mit Inhalt wird zur Hauptseite */
+    /* --- Nav_View mit Inhalt wird zur Hauptseite */
     AdwNavigationPage *main_page = adw_navigation_page_new(GTK_WIDGET(toolbar_view), "Finden");
     adw_navigation_view_push(nav_view, main_page);
 
@@ -746,7 +771,16 @@ int main (int argc, char **argv)
     /* Resource‑Bundle (finden.gresource) registrieren um den Inhalt verfügbar zu machen */
     g_resources_register (resources_get_resource ()); // reicht für Icon innerhalb der App
 
+
+
+    init_environment(); // Environment ermitteln, global in config.c
+    init_config();      // Config File laden/erstellen in config.c
+        g_print ("Config miniterm value: %s\n", g_cfg.miniterm_enable ? "true" : "false"); // testen !!
+        g_print ("Config test value: %s\n", g_cfg.test_enable ? "true" : "false"); // testen !!
+    save_config ();     // Config File speichern in config.c // hier noch als Test !!
+
     /* ----- Erstelle den Pfad zu den locale-Dateien ----------------------------------- */
+    init_flatpak();
     if (is_flatpak)     // App ist FlatpakApp ? (global)
     {
         locale_path = "/app/share/locale"; // Flatpakumgebung /app/share/locale
@@ -757,11 +791,10 @@ int main (int argc, char **argv)
     textdomain("toq-finden");
     bind_textdomain_codeset("toq-finden", "UTF-8"); // Basisverzeichnis für Übersetzungen
     bindtextdomain("toq-finden", locale_path);
-    g_print (_("Lokalisierung in: %s \n"), locale_path); // testen
+    g_print ("Lokalization path in: %s \n", locale_path); // testen
 
-
-    init_environment(); // Globale Umgebungsvariablen
-    find_miniterm ();   // miniterm Pfad suchen
+    /* Prüfen ob miniterm im lokalem Pfad */
+    find_terminals();
 
     /* GTK/Adwaita Anwendung: */
     g_autoptr (AdwApplication) app =                        // Instanz erstellen + App-ID + Default-Flags;
@@ -772,7 +805,8 @@ int main (int argc, char **argv)
     /* Event_Loop */
     int ret = g_application_run (G_APPLICATION (app), argc, argv);
 
-    g_free (app_dir);          // aus global init_environment()
-    g_free (glob_term_path);   // aus global find_miniterm()
+    //config_cleanup ();         // Config 
+    //g_free (app_dir);          // aus global init_environment() jetzt in config.c hier löschen !!
+    g_free (glob_term_path);   // aus global find_terminals()
     return ret;
 }

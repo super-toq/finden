@@ -3,7 +3,7 @@
  *
  *
  *
- * gcc -g $(pkg-config --cflags gtk4 libadwaita-1) -o miniterm miniterm.c $(pkg-config --libs gtk4 libadwaita-1)
+ * gcc -g $(pkg-config --cflags gtk4 libadwaita-1) -o toq-miniterm miniterm.c $(pkg-config --libs gtk4 libadwaita-1)
  *
  * Please note:
  * The Use of this code and execution of the applications is at your own risk, I accept no liability!

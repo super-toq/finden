@@ -1,13 +1,13 @@
 # meson.build
-# toq 2025.11.15
+# toq 2025-12-02
 # Project definition (App ID)
-project('free.toq.finden', 'c', version: '1.0.0', default_options: 
- [
- 'warning_level=3',
- 'c_std=c11',
- 'buildtype=release',
- 'prefix=/usr/'
- ]
+project('free.toq.finden', 'c', meson_version: '>= 0.47', 
+  default_options: [
+    'warning_level=3',
+    'c_std=c11',
+    'buildtype=release',
+    'prefix=/usr/'
+  ]
 )
 
 # Base structure
@@ -17,7 +17,7 @@ icons_dir = join_paths(data_dir, 'icons') # Icons
 po_dir   = join_paths(src_dir, 'po')     # PO files
 
 # GResource XML definition
-gresource_xml = join_paths(data_dir, 'free.toq.finden.gresource.xml')
+gresource_xml = join_paths(src_dir, 'free.toq.finden.gresource.xml')
 
 # Dependencies
 glib_dep    = dependency('glib-2.0', required : true)
@@ -35,19 +35,29 @@ add_project_arguments(
  language : 'c'
 )
 
-# Gen. ressources
-#resource = gnome.gresource(gresource_xml, 
-#  dependencies: [glib_dep],
-#  install: true
-#)
-
-# Build and install (App ID)
-executable('free.toq.finden',
- sources     : [join_paths(src_dir, 'main.c'), 'src/free.toq.finden.gresource.c'],
- dependencies: [glib_dep, gtk_dep, adwaita_dep],
- install     : true, 
- install_dir : join_paths(get_option('prefix'), 'bin')
+# Generate ressources file
+gresource_c = custom_target(
+  'gresource',
+  output : 'free.toq.finden-gresource.c',   # nur Dateiname
+  command : ['glib-compile-resources',
+             join_paths(meson.source_root(), 'src', 'resources.xml'),
+             '--sourcedir=' + join_paths(meson.source_root(), 'data', 'icons'),
+             '--generate-source',
+             '--target=' + 'free.toq.finden-gresource.c']  # Ziel im Build dir
 )
+
+# Executable
+executable('toq-finden',
+  sources : [
+    join_paths(src_dir, 'main.c'),
+    join_paths(src_dir, 'config.c'),
+    gresource_c
+  ],
+  dependencies : [glib_dep, gtk_dep, adwaita_dep],
+  install : true,
+  install_dir : join_paths(get_option('prefix'), 'bin')
+)
+
 
 # Sub - Miniterm Path
 subdir('src/miniterm')

@@ -6,7 +6,7 @@ gtk_dep     = dependency('gtk4', required : true)
 adwaita_dep = dependency('libadwaita-1', required : true)
 glib_dep    = dependency('glib-2.0', required : true)
 
-executable('free.toq.miniterm',
+executable('toq-miniterm',
   sources     : miniterm_src,
   dependencies: [glib_dep, gtk_dep, adwaita_dep],
   install     : true,

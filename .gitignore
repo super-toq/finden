@@ -4,5 +4,8 @@ _build-dir/
 .flatpak-builder/
 _tmp/
 _repo/
+src/free.toq.finden.gresource.c
 src/finden
+src/toq-finden
+src/toq-miniterm
 free.toq.finden.flatpak

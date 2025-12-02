@@ -8,7 +8,7 @@
  * Please note:
  * The Use of this code and execution of the applications is at your own risk, I accept no liability!
  *
- * Version 0.9.1
+ * Version 0.9.2
  */
 #include <glib.h>
 #include <gtk/gtk.h>
@@ -91,7 +91,7 @@ static void find_terminals(void)
             glob_term_path = g_find_program_in_path (terminals[i]);
             if (glob_term_path) {
                 glob_term_name  = terminals[i];
-                g_print (_("[t2] %s found in %s\n"), glob_term_name , glob_term_path);
+                g_print ("[t2] %s found in %s\n", glob_term_name , glob_term_path);
                 break;
             }
         }
@@ -139,7 +139,7 @@ static void show_about (GSimpleAction *action, GVariant *parameter, gpointer use
     AdwAboutDialog *about = ADW_ABOUT_DIALOG (adw_about_dialog_new ());
     //adw_about_dialog_set_body(about, "Hierbei handelt es sich um ein klitzekleines Testprojekt."); //nicht in meiner adw Version?
     adw_about_dialog_set_application_name (about, "Finden");
-    adw_about_dialog_set_version (about, "0.9.1");
+    adw_about_dialog_set_version (about, "0.9.2");
     adw_about_dialog_set_developer_name (about, "toq");
     adw_about_dialog_set_website (about, "https://github.com/super-toq");
 
@@ -183,12 +183,11 @@ static void show_about (GSimpleAction *action, GVariant *parameter, gpointer use
 }//Ende About-Dialog
 
 /* ----- In Einstellungen Miniterm-Checkbox-Toggle -------------------------------------- */
-static void on_settings_miniterm_check_toggled (GtkCheckButton *btn, gpointer user_data)
+static void on_settings_miniterm_switch_toggled (GtkSwitch *miniterm_switch, GParamSpec *pspec, gpointer user_data)
 {
-    gboolean active = gtk_check_button_get_active (btn);
-    g_cfg.miniterm_enable = active; // globale Struktur aktualisieren
-    save_config ();                 // neun Wert sofort in Datei speichern
-    init_config ();                 // neue Config-Werte laden
+    g_cfg.miniterm_enable = gtk_switch_get_active (miniterm_switch);
+
+
 }
 /* ----- Einstellungen-Page ------------------------------------------------------------- */
 static void show_settings (GSimpleAction *action, GVariant *parameter, gpointer user_data)
@@ -208,33 +207,47 @@ static void show_settings (GSimpleAction *action, GVariant *parameter, gpointer 
     adw_toolbar_view_add_top_bar(settings_toolbar, GTK_WIDGET(settings_header));
 
     /* --- Inhalt der Settings-Seite --- */
-    GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-    gtk_widget_set_margin_top(content, 24);
-    gtk_widget_set_margin_start(content, 24);
+    GtkWidget *settings_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_widget_set_margin_top(settings_box, 24);
+    gtk_widget_set_margin_start(settings_box, 24);
 
-    /* Settings */
+    /* Settings Label... */
     GtkWidget *label = gtk_label_new(_("Terminaleinstellungen:"));
     gtk_widget_add_css_class(label, "title-4");
-    gtk_box_append(GTK_BOX(content), label);
+    gtk_box_append(GTK_BOX(settings_box), label);
 
+    /* Settings-Schalter */
+    GtkWidget *miniterm_switch = gtk_switch_new ();
+    gtk_switch_set_active (GTK_SWITCH (miniterm_switch), g_cfg.miniterm_enable);
+    /* Switch ausrichten */
+    gtk_widget_set_valign (miniterm_switch, GTK_ALIGN_CENTER);
+    gtk_widget_set_hexpand (miniterm_switch, FALSE);
 
-GtkWidget *miniterm_check = gtk_check_button_new_with_label (_("Miniterm benutzen"));
-gtk_check_button_set_active (GTK_CHECK_BUTTON (miniterm_check),
-                             g_cfg.miniterm_enable);   /* aktueller Zustand */
-g_signal_connect (miniterm_check, "toggled",
-                  G_CALLBACK (on_settings_miniterm_check_toggled), NULL);
-gtk_box_append (GTK_BOX (content), miniterm_check);
+    /* ActionRow erstellen */
+    AdwActionRow *row = ADW_ACTION_ROW (adw_action_row_new ());
+    adw_preferences_row_set_title (ADW_PREFERENCES_ROW (row), _("Miniterm als Terminal benutzen:"));
+    adw_action_row_add_suffix (row, miniterm_switch);
 
+    /* verbinden... */
+    g_signal_connect (miniterm_switch, "notify::active", G_CALLBACK(on_settings_miniterm_switch_toggled), NULL);
+
+    /* Row ins BOX-Widget einfügen */
+    GtkWidget *list_box = gtk_list_box_new ();
+    gtk_list_box_set_selection_mode (GTK_LIST_BOX (list_box), GTK_SELECTION_NONE);
+    gtk_list_box_append (GTK_LIST_BOX (list_box), GTK_WIDGET (row));
+
+    /* ListBox in den übergeordneten Box-Container einfügen */
+    gtk_box_append (GTK_BOX (settings_box), list_box);
 
     /* Inhalt einsetzen */
-    adw_toolbar_view_set_content(settings_toolbar, content);
+    adw_toolbar_view_set_content(settings_toolbar, settings_box);
 
     /* NavigationPage anlegen */
     AdwNavigationPage *settings_page =
-        adw_navigation_page_new(GTK_WIDGET(settings_toolbar), _("Einstellungen"));
+    adw_navigation_page_new(GTK_WIDGET(settings_toolbar), _("Einstellungen"));
     gtk_widget_set_size_request(GTK_WIDGET(settings_page), 600, 280);
 
-    /* Rein in den Stack */
+    /* Page der Settings_nav hinzufügen */
     adw_navigation_view_push(settings_nav, settings_page);
 }// Ende Einstellungen-Fenster
 
@@ -467,7 +480,6 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
 
     /* 6. ---- Terminal im System auswählen --------------- */
     gchar *term_path = NULL;
-    const gchar *term_name = NULL;
 
    /* t1. miniterm = true  */
    if (g_cfg.miniterm_enable) {
@@ -482,7 +494,6 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
 
       /* t2. miniterm = false  */
       term_path = glob_term_path;
-      term_name = glob_term_name;
 
       /* kein Terminal */
       if (!term_path) {
@@ -492,7 +503,7 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
             if (parent)
                 show_alert_dialog (parent,
                                _("Kein Terminal gefunden"),
-                               _("Es konnte kein unterstütztes Terminal auf diesem System gefunden werden."));
+                               _("Es konnte kein unterstütztes Terminal auf diesem System gefunden werden!"));
             g_free (find_cmd);
             return;
       }
@@ -667,12 +678,12 @@ static void on_activate (AdwApplication *app, gpointer)
     }
 
     /* --- (1.)Kontrallkästchen/Checkbox mit Namen "Ignoriere Snapshots" erstellen --- */
-    GtkWidget *snapshots_check = gtk_check_button_new_with_label(_("Snapshots durchsuchen"));
+    GtkWidget *snapshots_check = gtk_check_button_new_with_label(_("Snapshots einbeziehen"));
     gtk_widget_add_css_class (snapshots_check, "selection-mode");
     gtk_check_button_set_active (GTK_CHECK_BUTTON(snapshots_check), FALSE);
 
      /* --- (2.)Kontrollkästchen/Checkbox mit Namen "root" erstellen --- */
-    GtkWidget *root_check = gtk_check_button_new_with_label(_("Root durchsuchen"));
+    GtkWidget *root_check = gtk_check_button_new_with_label(_("System einbeziehen"));
     gtk_widget_add_css_class (root_check, "selection-mode");
     gtk_check_button_set_active (GTK_CHECK_BUTTON(root_check), FALSE);
 
@@ -777,7 +788,7 @@ int main (int argc, char **argv)
     init_config();      // Config File laden/erstellen in config.c
         g_print ("Config miniterm value: %s\n", g_cfg.miniterm_enable ? "true" : "false"); // testen !!
         g_print ("Config test value: %s\n", g_cfg.test_enable ? "true" : "false"); // testen !!
-    save_config ();     // Config File speichern in config.c // hier noch als Test !!
+    //save_config ();     // Config File speichern in config.c // hier noch als Test !!
 
     /* ----- Erstelle den Pfad zu den locale-Dateien ----------------------------------- */
     init_flatpak();
@@ -791,7 +802,7 @@ int main (int argc, char **argv)
     textdomain("toq-finden");
     bind_textdomain_codeset("toq-finden", "UTF-8"); // Basisverzeichnis für Übersetzungen
     bindtextdomain("toq-finden", locale_path);
-    g_print ("Lokalization path in: %s \n", locale_path); // testen
+    g_print ("Lokalization path: %s \n", locale_path); // testen
 
     /* Prüfen ob miniterm im lokalem Pfad */
     find_terminals();
@@ -805,8 +816,7 @@ int main (int argc, char **argv)
     /* Event_Loop */
     int ret = g_application_run (G_APPLICATION (app), argc, argv);
 
-    //config_cleanup ();         // Config 
-    //g_free (app_dir);          // aus global init_environment() jetzt in config.c hier löschen !!
+    config_cleanup ();         // Config cleanup
     g_free (glob_term_path);   // aus global find_terminals()
     return ret;
 }

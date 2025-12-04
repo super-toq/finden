@@ -91,7 +91,7 @@ msgstr "Search in .snapshots path"
 
 #: main.c:750
 msgid "Suche in System"
-msgstr "Search system path"
+msgstr "Search in system path"
 
 #: main.c:761
 msgid "Exakte Übereinstimmung"

@@ -8,7 +8,7 @@
  * Please note:
  * The Use of this code and execution of the applications is at your own risk, I accept no liability!
  *
- * Version 0.9.5
+ * Version 0.9.6
  */
 #include <glib.h>
 #include <gtk/gtk.h>
@@ -140,7 +140,7 @@ static void show_about (GSimpleAction *action, GVariant *parameter, gpointer use
     /* About‑Dialog anlegen */
     AdwAboutDialog *about = ADW_ABOUT_DIALOG (adw_about_dialog_new ());
     adw_about_dialog_set_application_name (about, "Finden");
-    adw_about_dialog_set_version (about, "0.9.5");
+    adw_about_dialog_set_version (about, "0.9.6");
     adw_about_dialog_set_developer_name (about, "toq");
     adw_about_dialog_set_website (about, "https://github.com/super-toq");
 
@@ -625,7 +625,7 @@ static void on_activate (AdwApplication *app, gpointer)
     AdwApplicationWindow *adw_win = ADW_APPLICATION_WINDOW (adw_application_window_new (GTK_APPLICATION (app))); 
 
     gtk_window_set_title (GTK_WINDOW(adw_win), "Finden");         // WM-Titel
-    gtk_window_set_default_size (GTK_WINDOW(adw_win), 510, 260);  // Standard-Fenstergröße
+    gtk_window_set_default_size (GTK_WINDOW(adw_win), 510, 240);  // Standard-Fenstergröße
     gtk_window_set_resizable (GTK_WINDOW (adw_win), FALSE);       // Skalierung nicht erlauben
 
     /* --- Navigation Root ----- */
@@ -682,26 +682,26 @@ static void on_activate (AdwApplication *app, gpointer)
     gtk_widget_set_vexpand (GTK_WIDGET (mainbox), TRUE);
 
     /* ----- Text-Label erstellen  ----- */
-    GtkLabel *label1 = GTK_LABEL(gtk_label_new (NULL));
-    gtk_label_set_markup (label1, _("<b>Finden statt Suchen</b>")); // Titel in Markup
-    gtk_label_set_use_markup (label1, TRUE);                        // Markup-Parsing aktivieren
-    gtk_widget_set_halign (GTK_WIDGET (label1), GTK_ALIGN_CENTER);
-    gtk_widget_set_valign (GTK_WIDGET (label1), GTK_ALIGN_CENTER);
+    //GtkLabel *label1 = GTK_LABEL(gtk_label_new (NULL));
+    //gtk_label_set_markup (label1, _("<b>Finden statt Suchen</b>")); // Titel in Markup
+    //gtk_label_set_use_markup (label1, TRUE);                        // Markup-Parsing aktivieren
+    //gtk_widget_set_halign (GTK_WIDGET (label1), GTK_ALIGN_CENTER);
+    //gtk_widget_set_valign (GTK_WIDGET (label1), GTK_ALIGN_CENTER);
 
     /* ----- Smiley‑Image aus der Resource ----- */
-    GtkWidget *smiley = gtk_image_new_from_resource ("/free/toq/finden/smiley1");
-    gtk_image_set_pixel_size (GTK_IMAGE (smiley), 24);   // Smiley Größe
+    //GtkWidget *smiley = gtk_image_new_from_resource ("/free/toq/finden/smiley1");
+    //gtk_image_set_pixel_size (GTK_IMAGE (smiley), 24);   // Smiley Größe
 
     /* ----- BOX-Widget für Text und Smiley erstellen ----- */
-    GtkBox *smileytext_box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6)); // Abstand Icon
-    gtk_widget_set_halign (GTK_WIDGET (smileytext_box), GTK_ALIGN_CENTER);
-    gtk_widget_set_valign (GTK_WIDGET (smileytext_box), GTK_ALIGN_CENTER);
+    //GtkBox *smileytext_box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6)); // Abstand Icon
+    //gtk_widget_set_halign (GTK_WIDGET (smileytext_box), GTK_ALIGN_CENTER);
+    //gtk_widget_set_valign (GTK_WIDGET (smileytext_box), GTK_ALIGN_CENTER);
 
     /* ----- Smiley und TextLabel der Box hinzufügen ----- */ 
-    gtk_box_append (smileytext_box, GTK_WIDGET (label1)); // Label in Widget convertieren
-    gtk_box_append (smileytext_box, smiley); // Reihenfolge von Label und Smiley
+    //gtk_box_append (smileytext_box, GTK_WIDGET (label1)); // Label in Widget convertieren
+    //gtk_box_append (smileytext_box, smiley); // Reihenfolge von Label und Smiley
 
-    gtk_box_append (GTK_BOX (mainbox), GTK_WIDGET (smileytext_box));
+    //gtk_box_append (GTK_BOX (mainbox), GTK_WIDGET (smileytext_box));
 
     /* ----- Suchleiste + Root‑Checkbutton oberhalb der Schaltfläche (horizontal) ---------- */
     GtkWidget *search_entry = NULL;   // Suchleisten-Widget
@@ -712,7 +712,7 @@ static void on_activate (AdwApplication *app, gpointer)
     /* Suchfeld */
         search_entry = gtk_search_entry_new ();
         gtk_search_entry_set_placeholder_text (GTK_SEARCH_ENTRY (search_entry), 
-                                                  _("Suchbegriff eingeben …"));
+                                                  _("Finden statt Suchen"));
         gtk_widget_set_hexpand (search_entry, TRUE);
         gtk_widget_set_halign (search_entry, GTK_ALIGN_FILL);
         gtk_widget_set_size_request (search_entry, 300, -1);
@@ -833,9 +833,9 @@ static void on_activate (AdwApplication *app, gpointer)
     g_object_set_data(G_OBJECT(search_button), "exact_check", exact_check);
 
     /* ----- Spacer vor kommenden button_hbox ---------------------------------------------- */
-    //GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    //gtk_widget_set_size_request(spacer, -1, -1); // Breite unbegrenzt, Höhe in px
-    //gtk_box_append(GTK_BOX(mainbox), spacer);
+    GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_widget_set_size_request(spacer, -1, -1); // Breite unbegrenzt, Höhe in px
+    gtk_box_append(GTK_BOX(mainbox), spacer);
 
     /* -----  Box zur ToolbarView hinzufügen ----------------------------------------------- */
     gtk_box_append(GTK_BOX(mainbox), button_hbox);

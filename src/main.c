@@ -8,7 +8,7 @@
  * Please note:
  * The Use of this code and execution of the applications is at your own risk, I accept no liability!
  *
- * Version 0.9.6
+ * Version 0.9.6_2
  */
 #include <glib.h>
 #include <gtk/gtk.h>
@@ -83,10 +83,15 @@ static void find_terminals(void)
             "konsole",
             "gnome-terminal",
             "kgx",
-            "xterm",
             "terminator",
             "kitty",
             "xfce4-terminal",
+            "tilix",
+            "alacritty",
+            "kitty",
+            "foot",
+            "wezterm",
+            "xterm",
             NULL
         };
         for (int i = 0; terminals[i] != NULL; i++) {
@@ -398,7 +403,7 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
 
     /* 0. ---- Struktur dient für "Schalter" ---- */
 
-    /* 1. ---- Tool-"find"‑ermitteln ---------------------------------------------------- */
+    /* 1. ---- Tool-"find"‑ermitteln --------------------------------------------------------- */
     const gchar *find_prog = "find";
     gchar *find_path = g_find_program_in_path (find_prog);
     if (!find_path) {
@@ -412,7 +417,7 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
         return;
     }
 
-    /* 2. ---- Prüfen, ob die Checkboxen aktiviert ---- */
+    /* 2. ---- Prüfen, ob die Checkboxen aktiviert ------------------------------------------- */
         gboolean root_active = FALSE;
         gboolean snapshots_active = FALSE;
   
@@ -422,14 +427,14 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
             snapshots_active = gtk_check_button_get_active(refs->snapshots_check);
 
 
-    /* 2.1 ---- Debug-Ausgaben ------------------------ */
+    /* 2.1 ---- Debug-Ausgaben --------------------------------------------------------------- */
     g_print("switch root: %s\n",
         root_active ? "true" : "false");
 
     g_print("switch snapshots: %s\n",
         snapshots_active ? "true" : "false");
 
-    /* 3. ---- Modus bestimmen ----------------------  */
+    /* 3. ---- Modus bestimmen --------------------------------------------------------------- */
     typedef enum 
     {
         ROOT_OFF = 0,
@@ -462,7 +467,7 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
         mode = ROOT_RUN0_SNAPSHOTS_OK;
     }
 
-    /* ---- 4. Schalter aus 3.x - für ROOT, RUN0, SNAPSHOTS + Find-Kommande ---- */
+    /* ---- 4. Schalter aus 3.x - für ROOT, RUN0, SNAPSHOTS + Find-Kommande ------------------ */
     void (*cmd_action)(const char *, const char *, UiRefs *) = NULL;
     cmd_action = action_A; // Find-Kommando [A] wird in "static void action_A" definiert
     // Diese Maßnahme war notwendig, da sonst nested-Fuction innerhalb einer Funktion entsteht!
@@ -525,7 +530,7 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
             break;
     } // Switch(mode) Ende
 
-    /* 5. ---- Aktion für das find-Kommando aufrufen ---- */
+    /* 5. ---- Aktion für das find-Kommando aufrufen ------------------------------------- */
     if (cmd_action) cmd_action(find_path, query, refs);  
 
  /* Hinweis - cmd_action beinhaltet:
@@ -540,10 +545,10 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
  */
     g_free(find_path);
 
-    /* 6. ---- Terminal im System auswählen --------------- */
+    /* 6. ---- Terminal im System auswählen ---------------------------------------------- */
     gchar *term_path = NULL;
 
-   /* t1. miniterm = true  */
+   /* T1. miniterm = true  */
    if (g_cfg.miniterm_enable) {
         printf("[t] In settings, miniterm is enabled!\n");
         /* t1.1 miniterm-Pfad global hinterlegt? */
@@ -554,7 +559,7 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
    //g_print("[t] Known path to miniterm = %s\n", term_path); // testen
    } else {
 
-      /* t2. miniterm = false  */
+      /* T2. miniterm = false  */
       term_path = glob_term_path;
 
       /* kein Terminal */
@@ -571,26 +576,43 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
       }
    }
 
+    /* 7. Erweiterte Terminal-Option bestimmen -------------------------------------------- */
+    const gchar *term_option;                                       // Terminals mit Option "--"
+    if (g_str_has_suffix(glob_term_name, "gnome-terminal") ||
+         g_str_has_suffix(glob_term_name, "miniterm") ||
+          g_str_has_suffix(glob_term_name, "toq-miniterm") ||
+           g_str_has_suffix(glob_term_name, "kgx") ||
+            g_str_has_suffix(glob_term_name, "terminator") ||
+             g_str_has_suffix(glob_term_name, "tilix") ||
+              g_str_has_suffix(glob_term_name, "kitty") ||
+               g_str_has_suffix(glob_term_name, "alacritty") ||
+                g_str_has_suffix(glob_term_name, "foot") ||
+                 g_str_has_suffix(glob_term_name, "wezterm"))
+        term_option = "--";
+    else if (g_str_has_suffix(glob_term_name, "xfce4-terminal")) {  // Xfce4-Terminal mit Option "-e"
+        term_option = "-x"; 
+    }
+    else
+        term_option = "-e";                                 // alle anderen wie KDE-Konsole(<22.12), xterm, Standard-Option: "-e"
 
-    /* 7. ---- Terminal starten ------------------------------------------------------- */
-             /* mit "exec bash" neuer Bash-Shell starten, dadurch Terminal aktiv halten */
-    gchar *full_cmd = g_strdup_printf ("%s; exec bash", find_cmd);
+    /* 7. ---- Kommando zusammenbauen ---------------------------------------------------- */
+    gchar *full_cmd = g_strdup_printf("%s; exec bash", find_cmd);
 
-    /* komplettes Kommando überprüfen */
-    g_print ("full_cmd: %s\n", full_cmd);  //testen
+    /* komplettes Kommando ausgeben */
+    g_print ("command: %s %s %s\n", glob_term_name, term_option, full_cmd);  //zum testen !!
 
-    /* ----- Argumentliste vorbereiten --------------------*/
+    /* 8. ---- Argument-Liste vorbereiten ------------------------------------------------ */
     /* argv = "/usr/bin/gnome-terminal -- bash -c "/usr/bin/find / -iname \"*example*\"; exec bash"" */
     /* g_strdup   Funktion zum kopieren eines Strings in ein neu angel. Speicherplatz + Zeiger darauf */
     gchar *argv[] = {
         term_path,
-        g_strdup ("--"),     //Option die sicherstellt, alle nachfolg. Arg. für das Terminal u. nicht für die Terminal-Umgebung interpr. werden.
-        g_strdup ("bash"),  //auszuführendes Kommando
-        g_strdup ("-c"),    // Option zum Anweisen der Bash, alle folgenden Kommandos als Argumente zu interpretieren
+        g_strdup(term_option),   // Option für nicht-Gnome-Terminals, siehe Terminal-Option oben
+        g_strdup("bash"),
+        g_strdup("-c"),
         full_cmd,
-        NULL               //Array mit NULL derminieren
+        NULL
     };
-
+    /* 9. ---- Terminal starten ---------------------------------------------------------- */
     GError *error = NULL;
     gchar *cwd = g_get_current_dir ();   /* Arbeitsverzeichnis */
     if (!g_spawn_async (cwd, argv, NULL, G_SPAWN_DEFAULT, NULL, NULL, NULL, &error)) {
@@ -599,8 +621,8 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
     }
     g_free (cwd);
 
-    /* ---- Speicher freigeben  (v4) ---- */
-    /* argv[1..n] wurden mit g_strdup erzeugt (argv[0] ist term_path, argv[3] = full_cmd) */
+    /* 10. ---- Speicher freigeben  (v4) ------------------------------------------------- */
+    /* argv[1..n] wurden mit g_strdup erzeugt (argv[0] ist term_path, argv[3] = full_cmd)  */
     for (int i = 1; argv[i] != NULL; i++)
         g_free (argv[i]);
 
@@ -609,8 +631,6 @@ static void on_search_button_clicked (GtkButton *button, gpointer user_data)
        Lösung zum Eigentum erlangen und anschließend leeren: */
     term_path = g_strdup(term_path);
     g_free (term_path); 
-    
-
     /* find_cmd und full_cmd einmalig freigeben (full_cmd wurde bereits durch argv-loop freigegeben!)*/
     g_free (find_cmd);  /* full_cmd) bereits via argv loop */
 

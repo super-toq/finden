@@ -263,7 +263,7 @@ static void show_settings (GSimpleAction *action, GVariant *parameter, gpointer 
     /* ----- NavigationPage anlegen ----- */
     AdwNavigationPage *settings_page = 
                       adw_navigation_page_new(GTK_WIDGET(settings_toolbar), _("Einstellungen"));
-    gtk_widget_set_size_request(GTK_WIDGET(settings_page), 510, 260);
+    gtk_widget_set_size_request(GTK_WIDGET(settings_page), 510, 250);
 
     /* ----- Page der Settings_nav hinzufügen ----- */
     adw_navigation_view_push(settings_nav, settings_page);
@@ -625,7 +625,7 @@ static void on_activate (AdwApplication *app, gpointer)
     AdwApplicationWindow *adw_win = ADW_APPLICATION_WINDOW (adw_application_window_new (GTK_APPLICATION (app))); 
 
     gtk_window_set_title (GTK_WINDOW(adw_win), "Finden");         // WM-Titel
-    gtk_window_set_default_size (GTK_WINDOW(adw_win), 510, 240);  // Standard-Fenstergröße
+    gtk_window_set_default_size (GTK_WINDOW(adw_win), 510, 250);  // Standard-Fenstergröße
     gtk_window_set_resizable (GTK_WINDOW (adw_win), FALSE);       // Skalierung nicht erlauben
 
     /* --- Navigation Root ----- */
@@ -785,6 +785,7 @@ static void on_activate (AdwApplication *app, gpointer)
     refs->exact_check     = GTK_CHECK_BUTTON(exact_check);     // ...und Exact_Checkbox.
 
 
+
     /* --- Schaltflächen-WidgetBox hier anlegen: ------------------------------------------- */
     GtkWidget *button_hbox = NULL;
     if (!button_hbox) {
@@ -793,7 +794,6 @@ static void on_activate (AdwApplication *app, gpointer)
         gtk_widget_set_hexpand(button_hbox, FALSE);                 // nicht ausdehnen!!
         gtk_widget_set_vexpand(button_hbox, FALSE);
         gtk_widget_set_halign(button_hbox, GTK_ALIGN_CENTER);
-
     }
 
     /* --- Schaltfläche-Finden in Thema Akzent --------------------------------------------- */
@@ -825,17 +825,12 @@ static void on_activate (AdwApplication *app, gpointer)
     /* ----- Schaltfläche der Box hinzufügen ----- */
     gtk_box_append(GTK_BOX(button_hbox), quit_button);    
     gtk_box_append(GTK_BOX(button_hbox), search_button);
-
+    gtk_widget_set_margin_top (button_hbox, 24); // Abstand zum vorherigen Element
 
     /* --- Checkboxen am Search-Button speichern, um diese im Callback abrufen zu können --- */
     g_object_set_data(G_OBJECT(search_button), "root_check", root_check);
     g_object_set_data(G_OBJECT(search_button), "snapshots_check", snapshots_check);
     g_object_set_data(G_OBJECT(search_button), "exact_check", exact_check);
-
-    /* ----- Spacer vor kommenden button_hbox ---------------------------------------------- */
-    GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_widget_set_size_request(spacer, -1, -1); // Breite unbegrenzt, Höhe in px
-    gtk_box_append(GTK_BOX(mainbox), spacer);
 
     /* -----  Box zur ToolbarView hinzufügen ----------------------------------------------- */
     gtk_box_append(GTK_BOX(mainbox), button_hbox);

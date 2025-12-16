@@ -8,7 +8,7 @@
  * Please note:
  * The Use of this code and execution of the applications is at your own risk, I accept no liability!
  *
- * Version 0.9.7
+ * Version 0.9.7_3
  */
 #include <glib.h>
 #include <gtk/gtk.h>
@@ -146,7 +146,7 @@ static void show_about (GSimpleAction *action, GVariant *parameter, gpointer use
     /* About‑Dialog anlegen */
     AdwAboutDialog *about = ADW_ABOUT_DIALOG (adw_about_dialog_new ());
     adw_about_dialog_set_application_name (about, "Finden");
-    adw_about_dialog_set_version (about, "0.9.7");
+    adw_about_dialog_set_version (about, "0.9.7_3");
     adw_about_dialog_set_developer_name (about, "toq");
     adw_about_dialog_set_website (about, "https://github.com/super-toq");
 
@@ -306,7 +306,9 @@ static void action_A(const gchar *find_path, const gchar *query, UiRefs *refs)
        find_path, g_get_home_dir(), iname_query, grep); 
                  /* g_get_home_dir() ist Funktion aus GLib, 
                     welche innerhalb dieser Funktion eine Zeichenkette in "const gchar" ermittelt. */
-    g_free (iname_query);
+
+    g_free(iname_query);
+    g_free(grep);
 } // Hinweis: g_free(find_cmd) erfolgt in Suchfunktion;
 
     /* 5.2  find Kommando:   ([B] Root ohne Snapshots)  */
@@ -327,10 +329,11 @@ static void action_B(const gchar *find_path, const gchar *query, UiRefs *refs)
     }
 
     find_cmd = g_strdup_printf(
-    "run0 --background=0 --unit=finden --via-shell %s / -path \"/.snapshots\" -prune -o %s %s",
+    "run0 --background=0 --unit=finden --via-shell %s / -path \"/run\" -prune -o -path \"/.snapshots\" -prune -o %s %s",
         find_path, iname_query, grep);
 
-    g_free (iname_query);
+    g_free(iname_query);
+    g_free(grep);
 } // Hinweis: g_free(find_cmd) erfolgt in Suchfunktion;
         
     /* 5.3  find Kommando:   ([C] Root + Snapshots)  */
@@ -351,7 +354,7 @@ static void action_C(const gchar *find_path, const gchar *query, UiRefs *refs)
     }
 
     find_cmd = g_strdup_printf(
-    "run0 --background=0 --unit=finden --via-shell %s / %s %s", find_path, iname_query, grep); 
+    "run0 --background=0 --unit=finden --via-shell %s / -path \"/run\" -prune -o %s %s", find_path, iname_query, grep); 
 
     g_free(iname_query);
     g_free(grep);

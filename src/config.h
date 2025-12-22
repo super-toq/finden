@@ -10,7 +10,7 @@
 /* ----- Globale Struktur um Konfigurations-Parameter zu kapseln ------------ */
 typedef struct {
     gboolean miniterm_enable; // true/false
-    gboolean test_enable;      // true/false
+    gboolean use_tmux;        // true/false
 } FindConfig;
 
 /* ----- Globale Instanz ----- */

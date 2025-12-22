@@ -1,6 +1,8 @@
 /*
  * Implementierung: • init_environment() ermittelt app_dir und config_path. • init_config() lädt (oder erzeugt) die *.cfg‑Datei, füllt g_cfg.miniterm_enable. • save_config() schreibt zurück. • config_cleanup() räumt auf.
  *
+ *
+ * Version 2025-12-19
  */
 
 #include "config.h"
@@ -8,13 +10,13 @@
 
 /* ----- Globale Variablen ------------------ */
 static gchar   *app_dir     = NULL;    /* Pfad zum Executable‑Verzeichnis */
-static gchar   *config_path = NULL;    /* Vollständiger Pfad zur .cfg‑Datei */
+static gchar   *config_path = NULL;    /* Vollständiger Pfad zur .cfg-Datei */
 static GKeyFile *key_file   = NULL;    /* In‑Memory‑Repräsentation der Datei */
 
 /* ----- Globale Struktur der Keys ---------- */
 FindConfig g_cfg = {
     .miniterm_enable = FALSE,  // Standard-Wert, falls alles fehlschlägt
-    .test_enable     = FALSE
+    .use_tmux        = FALSE
 };
 /* ----- Getter für app_dir ---------------- */
 const gchar *get_app_dir (void)
@@ -67,29 +69,37 @@ void init_config (void)
 
     /* ----- Datei laden (falls vorhanden) ----- */
     if (g_file_test (config_path, G_FILE_TEST_IS_REGULAR)) {
-        GError *err = NULL;
-        if (!g_key_file_load_from_file (key_file, config_path, G_KEY_FILE_KEEP_COMMENTS, &err)) {
-            g_warning ("[C] Configuration loading failed: %s - using default value", err->message);
-            g_error_free (err);
+        GError *error = NULL;
+        if (!g_key_file_load_from_file (key_file, config_path, G_KEY_FILE_KEEP_COMMENTS, &error)) {
+            g_warning ("[C] Configuration loading failed: %s - using default value", error->message);
+            g_error_free(error);
         }
     }
 
     /* ----- Default-Werte setzen, falls Schlüssel fehlen ----- */
-    // Key1 Miniterm
+    // Key1: Miniterm verwenden
      if (!g_key_file_has_key (key_file, "General", "miniterm_enable", NULL)) {
-        g_key_file_set_boolean (key_file, "General", "miniterm_enable", TRUE);
+        g_key_file_set_boolean (key_file, "General", "miniterm_enable", FALSE);
     }
-    // Key2 Test
-    if (!g_key_file_has_key (key_file, "General", "test_enable", NULL)) {
-        g_key_file_set_boolean (key_file, "General", "test_enable", FALSE);
-    }
+    // Key2: tmux verwenden
+    if (!g_key_file_has_key (key_file, "General", "use_tmux", NULL)) {
+        g_key_file_set_boolean (key_file, "General", "use_tmux", FALSE);
+    // ...
 
+    // ...
+
+
+    }
 
     /* ----- Laden der Werte in die globale Struktur "g_cfg.x" ----- */
-    // Key1
+    // Key1:
     g_cfg.miniterm_enable = g_key_file_get_boolean (key_file, "General", "miniterm_enable", NULL);
-    // Key2
-    g_cfg.test_enable = g_key_file_get_boolean (key_file, "General", "test_enable", NULL);
+    // Key2:
+    g_cfg.use_tmux = g_key_file_get_boolean (key_file, "General", "use_tmux", NULL);
+    // Key3:
+
+    // Key4:
+
 }
 
 
@@ -99,17 +109,20 @@ void save_config (void)
     if (!key_file || !config_path) return;
 
     /* Werte aus g_cfg in die GKeyFile‑Instanz schreiben */
-    // Key1
+    // Key1:
     g_key_file_set_boolean (key_file, "General", "miniterm_enable", g_cfg.miniterm_enable);
-    // Key2
-    g_key_file_set_boolean (key_file, "General", "test_enable", g_cfg.test_enable);
+    // Key2:
+    g_key_file_set_boolean (key_file, "General", "use_tmux", g_cfg.use_tmux);
+    // Key3:
+
+    // Key4:
 
 
     /* Fehlerbehandlung */
-    GError *err = NULL;
-    if (!g_key_file_save_to_file (key_file, config_path, &err)) {
-        g_warning ("[C] Failed to save configuration: %s", err->message);
-        g_error_free (err);
+    GError *error = NULL;
+    if (!g_key_file_save_to_file (key_file, config_path, &error)) {
+        g_warning ("[C] Failed to save configuration: %s", error->message);
+        g_error_free (error);
     }
 }
 

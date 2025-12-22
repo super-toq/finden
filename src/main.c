@@ -10,9 +10,12 @@
  *
  *
  */
-#define APP_VERSION    "0.9.7_5"
+#define APP_VERSION    "0.9.8"
 #define APP_ID         "free.toq.finden"
 #define APP_DOMAINNAME "toq-finden"
+
+#define TMUX_SOCKET    "Finden_Socket"
+#define TMUX_SESSION   "Finden"
 
 #include <glib.h>
 #include <gtk/gtk.h>
@@ -33,6 +36,12 @@ typedef struct {                        // Widget-Zeigern erstellten...
     GtkCheckButton  *exact_check;
 } UiRefs;
 
+typedef struct {
+    int exit_code;
+    gchar          *output;
+    gchar          *error;
+} TmuxSessionStatus;
+
 static gchar       *glob_term_path     = NULL;  // terminal Pfad global ermittelt
 static const gchar *glob_term_name     = NULL;  // term. Name ...
 static gchar       *glob_path_miniterm = NULL;  // miniterm Pfad
@@ -42,7 +51,7 @@ static gboolean    is_flatpak         = FALSE;  // 1 oder 0 ausgeben
 
 /* Hinweis, aus config.c: 
   g_cfg.miniterm_enable
-  g_cfg.test_enable
+  g_cfg.use_tmux
 */
 
 
@@ -192,15 +201,27 @@ static void show_about(GSimpleAction *action, GVariant *parameter, gpointer user
     adw_dialog_present(ADW_DIALOG(about), GTK_WIDGET(parent));
 }//Ende About-Dialog
 
-/* ----- In Einstellungen: Miniterm-Schalter-Toggle ------------------------------------- */
+
+/* ----- In Einstellungen: Schalter1-Toggle ---------------------------------------------- */
 static void on_settings_miniterm_switch_row_toggled(GObject *object, GParamSpec *pspec, gpointer user_data)
 {
     AdwSwitchRow *miniterm_switch_row = ADW_SWITCH_ROW(object);
     gboolean active = adw_switch_row_get_active(miniterm_switch_row);
     g_cfg.miniterm_enable = active;
     save_config(); // speichern
-    //g_print("Settings changed: miniterm value %s\n", g_cfg.miniterm_enable ? "true" : "false"); // testen !!
+    g_print("Settings changed: miniterm value=%s\n", g_cfg.miniterm_enable ? "true" : "false"); // testen !!
 }
+
+/* ----- In Einstellungen: Schalter2-Toggle ---------------------------------------------- */
+static void on_settings_use_tmux_switch_row_toggled(GObject *object, GParamSpec *pspec, gpointer user_data)
+{
+    AdwSwitchRow *use_tmux_switch_row = ADW_SWITCH_ROW(object);
+    gboolean active = adw_switch_row_get_active(use_tmux_switch_row);
+    g_cfg.use_tmux = active;
+    save_config(); // speichern
+    g_print("Settings changed: use_tmux value=%s\n", g_cfg.use_tmux ? "true" : "false"); // testen !!
+}
+
 /* ----- Einstellungen-Page ------------------------------------------------------------- */
 static void show_settings(GSimpleAction *action, GVariant *parameter, gpointer user_data)
 {
@@ -230,38 +251,36 @@ static void show_settings(GSimpleAction *action, GVariant *parameter, gpointer u
     adw_preferences_group_set_title(settings_group, _("Terminaleinstellungen"));
     //adw_preferences_group_set_description(settings_group, _("Zusatzbeschreibung - Platzhalter"));
 
+    /* ----- AdwSwitchRow2-tmux - erzeugen ----- */
+    AdwSwitchRow *use_tmux_switch_row = ADW_SWITCH_ROW(adw_switch_row_new());
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(use_tmux_switch_row), 
+                                                    _("Terminal mit tmux anzeigen (experimental)"));
+    adw_action_row_set_subtitle(ADW_ACTION_ROW(use_tmux_switch_row),
+     _("Verwende tmux zur Anzeige der Terminal-Ausgabe."));
+    /* Schalter-Aktivierung abhängig von gesetzten g_cfg. -Wert: */
+    adw_switch_row_set_active(ADW_SWITCH_ROW(use_tmux_switch_row), g_cfg.use_tmux);
+    gtk_widget_set_sensitive(GTK_WIDGET(use_tmux_switch_row), TRUE);    //Aktiviert/Deaktiviert
+
     /* ----- AdwSwitchRow1-Miniterm - erzeugen ----- */
     AdwSwitchRow *miniterm_switch_row = ADW_SWITCH_ROW(adw_switch_row_new());
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(miniterm_switch_row), 
-                                                    _("Miniterm als Terminal verwenden:"));
+                                                    _("Miniterm als Terminal verwenden"));
     adw_action_row_set_subtitle(ADW_ACTION_ROW(miniterm_switch_row),
      _("Wenn Sie Miniterm nicht benutzen wollen, wird automatisch das systemeigene Terminal verwendet."));
     /* Schalter-Aktivierung abhängig von gesetzten g_cfg.miniterm_enable Wert: */
     adw_switch_row_set_active(ADW_SWITCH_ROW(miniterm_switch_row), g_cfg.miniterm_enable);
-
-    /* ----- AdwSwitchRow2-Testing - erzeugen ----- */
-    AdwSwitchRow *testing_switch_row = ADW_SWITCH_ROW(adw_switch_row_new());
-    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(testing_switch_row), 
-                                                    _("Testeinstellungen verwenden:"));
-    adw_action_row_set_subtitle(ADW_ACTION_ROW(testing_switch_row),
-     _("Dies ist eine Vorbereitung für eine kommende Funktion."));
-    /* Schalter-Aktivierung abhängig von gesetzten g_cfg.testing_enable Wert: */
-    //adw_switch_row_set_active(ADW_SWITCH_ROW(miniterm_switch_row), g_cfg.miniterm_enable);
-    // Vorerst deaktiv, später löschen:
-    adw_switch_row_set_active(testing_switch_row, FALSE);
-    gtk_widget_set_sensitive(GTK_WIDGET(testing_switch_row), FALSE);
-
+    gtk_widget_set_sensitive(GTK_WIDGET(miniterm_switch_row), FALSE);      //Aktiviert/Deaktiviert
     /* ----- AdwSwitchRow1-Miniterm verbinden... ----- */
-    g_signal_connect(miniterm_switch_row, "notify::active", 
-                                          G_CALLBACK(on_settings_miniterm_switch_row_toggled), NULL);
+    //g_signal_connect(miniterm_switch_row, "notify::active",              // Verbindung Deaktiviert!
+    //                                      G_CALLBACK(on_settings_miniterm_switch_row_toggled), NULL);
 
-    /* ----- AdwSwitchRow2-Testing verbinden... ----- */
-    //g_signal_connect(testing_switch_row, "notify::active", 
-    //                                      G_CALLBACK(on_settings_TESTING_switch_row_toggled), NULL);
+    /* ----- AdwSwitchRow2-Tmux verbinden... ----- */
+    g_signal_connect(use_tmux_switch_row, "notify::active", 
+                                          G_CALLBACK(on_settings_use_tmux_switch_row_toggled), NULL);
 
     /* ----- SwitchRows zur PreferencesGruppe hinzufügen ----- */
+    adw_preferences_group_add(settings_group, GTK_WIDGET(use_tmux_switch_row));
     adw_preferences_group_add(settings_group, GTK_WIDGET(miniterm_switch_row));
-    adw_preferences_group_add(settings_group, GTK_WIDGET(testing_switch_row));
 
     /* ----- Pref.Gruppe in die Page einbauen ----- */
     gtk_box_append(GTK_BOX(settings_box), GTK_WIDGET(settings_group));
@@ -278,37 +297,246 @@ static void show_settings(GSimpleAction *action, GVariant *parameter, gpointer u
     adw_navigation_view_push(settings_nav, settings_page);
 }// Ende Einstellungen-Fenster
 
-/* ---- Terminal starten ---------------------------------------------------------------- */
-static void start_terminal_for_output(const gchar *term_option, gchar *full_cmd) // Werte hier empfangen
-{
 
-   /* Argument-Liste vorbereiten, Beispiel */
-    /* argv = "/usr/bin/toq-miniterm -- bash -c "/usr/bin/find / -iname \"*example*\"; exec bash"" */
-    /* g_strdup   Funktion zum kopieren eines Strings in ein neu angel. Speicherplatz + Zeiger darauf */
-    gchar *argv[] = {
-        glob_term_path,
-        g_strdup(term_option),   // Option für nicht-Gnome-Terminals, siehe Terminal-Option oben
-        g_strdup("bash"),
-        g_strdup("-c"),
-        g_strdup(full_cmd),     // hier als Kopie, da sonst double-free 
+/* ----- Prüfen ob bereits eine tmux-session existiert ------------------------------ */
+static void check_tmux_session_status(TmuxSessionStatus *status)
+{
+    gchar *check_argv[] = {
+    g_strdup("/usr/bin/tmux"),
+    g_strdup  ("has-session"), // gibt Exit-Code 0 zurück, wenn die Session existiert, ansonst 1; 
+    g_strdup           ("-t"), // Session-Name verwenden
+    g_strdup   (TMUX_SESSION), // Name 
+                          NULL 
+    };
+
+    GError *error = NULL;
+    g_print("Checking tmux session\n"); 
+
+    if (!g_spawn_sync( NULL, check_argv, NULL, G_SPAWN_STDOUT_TO_DEV_NULL | G_SPAWN_STDERR_TO_DEV_NULL,
+                                                                  NULL, NULL, NULL, NULL, &status->exit_code, &error)) {
+        g_warning("[tmux] Error checking for session: %s", error->message); 
+        if (error) { 
+           g_error_free(error);
+        } 
+        status->exit_code = -1; // Statuscode setzen 
+    }
+    /* Speicher freigeben */
+    for (int i = 1; check_argv[i] != NULL; ++i) { 
+    g_free(check_argv[i]);
+    }
+}
+
+/* ----- Prüfen ob Pane in tmux-session existiert ---------------------------------- */
+static gboolean check_tmux_session_has_pane(void)
+{
+    gchar *list_argv[] = {
+        g_strdup("/usr/bin/tmux"),
+        g_strdup("list-panes"),
+        g_strdup("-t"),
+        g_strdup(TMUX_SESSION),
+        g_strdup("-F"),
+        g_strdup("#{pane_id}"),
         NULL
     };
 
     GError *error = NULL;
+    gchar *stdout_buf = NULL;
+    gsize  stdout_len = 0;
+    gboolean has_pane = FALSE;
 
-    gchar *currend_dir = g_get_current_dir();   // Arbeitsverzeichnis
-    if (!g_spawn_async(currend_dir, argv, NULL, G_SPAWN_DEFAULT, NULL, NULL, NULL, &error)) {
-        g_warning("Error starting the terminal: %s", error->message);
+    if (!g_spawn_sync(NULL, list_argv, NULL, G_SPAWN_STDERR_TO_DEV_NULL, NULL, NULL, &stdout_buf, NULL, NULL, &error)) {
+        g_warning("tmux list-panes failed: %s", error->message);
         g_error_free(error);
+        goto out;
     }
-    g_free(currend_dir);
-    currend_dir = NULL;
 
+    if (stdout_buf && *stdout_buf) { // stdout_buf enthält Zeilen mit Pane-IDs, getrennt durch '\n'
+        has_pane = TRUE;   // Rückgabewert
+        /* Wert zum testen anzeigen !! */
+        g_print("tmux session %s pane \n", has_pane   ? "has" : "has no");
+    }
+
+out:
+    g_free(stdout_buf);
+    for (int i = 1; list_argv[i] != NULL; ++i)
+        g_free(list_argv[i]);
+    return has_pane;
+}
+
+/* ----- Prüfen ob Session einen Client besitzt ------------------------------------- */
+static gboolean check_tmux_session_has_client(void)
+{
+    gchar *client_argv[] = {
+        g_strdup("/usr/bin/tmux"),
+        g_strdup("list-clients"),
+        g_strdup("-t"),
+        g_strdup(TMUX_SESSION),
+        NULL
+    };
+
+    GError *error = NULL;
+    gchar *stdout_buf = NULL;
+    gboolean has_client = FALSE;
+
+    if (!g_spawn_sync(NULL, client_argv, NULL, G_SPAWN_STDERR_TO_DEV_NULL, NULL, NULL, &stdout_buf, NULL,NULL, &error)) {
+        g_warning("tmux list-clients failed: %s", error->message);
+        g_error_free(error);
+        goto out;
+    }
+
+    if (stdout_buf && *stdout_buf) {
+        has_client = TRUE;   // Client gefunden, Rückgabewert
+        /* Wert zum testen anzeigen !! */
+        g_print("tmux session %s client\n", has_client   ? "has" : "has no");
+    }
+
+out:
+    g_free(stdout_buf);
+    for (int i = 1; client_argv[i] != NULL; ++i)
+        g_free(client_argv[i]);
+    return has_client;
+}
+
+
+/* ----- tmux-Session erstellen ---- */
+static void start_tmux_new_session(const gchar *term_option, gchar *full_cmd) // Werte hier empfangen
+{
+    if (term_option == NULL || full_cmd == NULL) {
+        g_warning("term_option and/or full_cmd are NULL");
+    return; 
+    }
+
+    g_print("Starting new tmux session\n");
+    gchar *argv[] = {
+                  glob_term_path,
+       g_strdup    (term_option),
+       g_strdup("/usr/bin/tmux"),
+       g_strdup  ("new-session"),
+       g_strdup           ("-A"),
+       g_strdup           ("-s"),
+       g_strdup   (TMUX_SESSION),
+       g_strdup         ("bash"),
+       g_strdup           ("-c"),
+       g_strdup       (full_cmd),
+                            NULL
+        };
+    /* Ausgabe des Inhalts von argv zum testen !! */
+    //g_print("argv: %s\n", g_strjoinv(" ", argv));
+
+    GError *error = NULL;
+
+    if (!g_spawn_async(NULL, argv, NULL, G_SPAWN_STDOUT_TO_DEV_NULL | G_SPAWN_STDERR_TO_DEV_NULL,
+                                                                             NULL, NULL, NULL, &error)) {
+        g_warning("[tmux] Error starting terminal: %s", error->message);
+        if (error) g_error_free(error);
+    }
     /* Speicher freigeben */
     /* argv[1..n] wurden mit g_strdup erzeugt (argv[0] ist glob_term_path, argv[3] = full_cmd)  */
     for (int i = 1; argv[i] != NULL; i++)
         g_free(argv[i]);
 
+}
+
+/* ---- Kommando per Send-keys übermitteln ------------------------------------------ */
+static void continue_tmux_sendkeys(const gchar *term_option, gchar *full_cmd) // Werte hier empfangen
+{
+    if (term_option == NULL || full_cmd == NULL) {
+        g_warning("term_option and/or full_cmd are NULL");
+    return; 
+    }
+
+    g_print("Using send-keys to send command\n");
+    gchar *argv[] = {
+       g_strdup("/usr/bin/tmux"),
+       g_strdup    ("send-keys"),
+       g_strdup           ("-t"),
+       g_strdup   (TMUX_SESSION),
+       g_strdup       (full_cmd),
+       g_strdup       ("Enter"),
+                            NULL
+        };
+    /* Ausgabe des Inhalts von argv zum testen !! */
+    //g_print("argv: %s\n", g_strjoinv(" ", argv));
+
+    GError *error = NULL;
+
+    if (!g_spawn_async(NULL, argv, NULL, G_SPAWN_STDOUT_TO_DEV_NULL | G_SPAWN_STDERR_TO_DEV_NULL, NULL, NULL, NULL, &error)) {
+        g_warning("[tmux] Error starting terminal: %s", error->message);
+        if (error) g_error_free(error);
+    }
+    /* Speicher freigeben */
+    /* argv[1..n] wurden mit g_strdup erzeugt (argv[0] ist glob_term_path, argv[3] = full_cmd)  */
+    for (int i = 1; argv[i] != NULL; i++)
+        g_free(argv[i]);
+
+}
+
+/* ---- Terminal starten, Standard-Methode --------------------------------------------- */
+static void start_terminal_for_output(const gchar *term_option, gchar *full_cmd) // Werte hier empfangen
+{
+
+    /* Argument-Liste vorbereiten, Beispiel */
+    /* argv = "/usr/bin/toq-miniterm -- bash -c "/usr/bin/find / -iname \"*example*\"; exec bash"" */
+    /* g_strdup   Funktion zum kopieren eines Strings in ein neu angel. Speicherplatz + Zeiger darauf */
+    gchar *argv[] = {
+               glob_term_path,
+        g_strdup(term_option),   // Option für nicht-Gnome-Terminals, siehe Terminal-Option oben
+        g_strdup     ("bash"),
+        g_strdup       ("-c"),
+        g_strdup   (full_cmd),   // hier als Kopie, da sonst double-free 
+//        g_strdup("exec bash"),
+                         NULL
+    };
+    /* Ausgabe des Inhalts von argv zum testen !! */
+    //g_print("argv: %s\n", g_strjoinv(" ", argv));
+
+    GError *error = NULL;
+
+    gchar *currend_dir = g_get_current_dir();   // Arbeitsverzeichnis
+    if (!g_spawn_async(currend_dir, argv, NULL, G_SPAWN_DEFAULT, NULL, NULL, NULL, &error)) {
+        g_warning("Error starting terminal: %s", error->message);
+        if (error) g_error_free(error);
+    }
+    /* Speicher freigeben */
+    g_free(currend_dir);
+    currend_dir = NULL;
+    /* argv[1..n] wurden mit g_strdup erzeugt (argv[0] ist glob_term_path, argv[3] = full_cmd)  */
+    for (int i = 1; argv[i] != NULL; i++)
+        g_free(argv[i]);
+
+
+}
+
+/* ---------- tmux-Session schließen ---------------------------------------------------- */
+static void close_tmux_session(void)
+{
+    /* tmux-Session und Terminal schließen */
+    gchar *cmd = g_strdup_printf("/usr/bin/tmux kill-session -t %s", TMUX_SESSION); 
+
+   /* system() führt den Befehl in einer Shell aus */ 
+   int return0 = system(cmd); 
+   if (return0 == -1) { 
+       perror("system");
+       g_print("tmux session \"%s\" was terminated\n", TMUX_SESSION);
+       return;
+   }
+}
+
+/* ---------- tmux-Session schließen v2 ------------------------------------------------- */
+static void close_tmux_session_v2(void)
+{
+    gchar *kill_argv[] = {
+        g_strdup("/usr/bin/tmux"),
+        g_strdup ("kill-session"),
+        g_strdup           ("-t"),
+        g_strdup   (TMUX_SESSION),
+                              NULL
+};
+    g_print("Closing tmux session...");
+    g_spawn_async(NULL, kill_argv, NULL, G_SPAWN_STDOUT_TO_DEV_NULL | G_SPAWN_STDERR_TO_DEV_NULL,
+                                                                              NULL, NULL, NULL, NULL);
+    for (int i = 1; kill_argv[i] != NULL; ++i)
+        g_free(kill_argv[i]);
 
 }
 
@@ -317,10 +545,10 @@ static void start_terminal_for_output(const gchar *term_option, gchar *full_cmd)
  Außerhalb von on_search_button_clicked, da sonst "nested-functions" innerhalb einer Funktion ensteht! --- */
     
 /* Global, aber nicht thread übergreifend */
-gchar *find_cmd = NULL;
+gchar       *find_cmd     = NULL;
 const gchar *iname_option = FALSE;
-gchar *iname_query = NULL;
-gchar *grep = NULL;
+gchar       *iname_query  = NULL;
+gchar       *grep         = NULL;
 
     /* 5.1  find Kommando:   ([A] ohne Root, nur im Homeverzeichnis)  */
 static void action_A(const gchar *find_path, const gchar *query, UiRefs *refs)  
@@ -398,8 +626,22 @@ static void action_C(const gchar *find_path, const gchar *query, UiRefs *refs)
 
 
 /* ----- Callback Beenden-Button ------------------------------------------------------- */
-static void on_quitbtn_clicked(GtkButton *button, gpointer user_data) 
-    { 
+static void on_quitbutton_clicked(GtkButton *button, gpointer user_data) 
+    {
+    TmuxSessionStatus status;
+    /* Prüfe ob noch eine tmux-Session läuft */
+    check_tmux_session_status(&status);  // Statusstruktur übergeben
+    g_print("[Quit] tmux session status code: %d\n", status.exit_code);
+
+        /* Wenn nicht bereits vorhanden, Session neu anlegen */
+
+                                       // 0=0=Session existiert
+                                       // 1=256=Session existiert nicht
+                                       // 2=512
+                                       // <0= =echter Fehler
+        if (status.exit_code == 0) close_tmux_session_v2();
+
+    /* Anwendung schließen */
     GtkWindow *win = GTK_WINDOW(user_data);
     gtk_window_destroy(win);
     // Aufräumen:
@@ -582,12 +824,13 @@ static void on_search_button_clicked(GtkButton *button, gpointer user_data)
     /* 5. ---- Aktion für das find-Kommando aufrufen ------------------------------------- */
     if (cmd_action) cmd_action(find_path, query, refs);  
 
- /* Hinweis - cmd_action beinhaltet:
-    action_A:
-  
-    action_B:
-
-    action_C:
+ /* Hinweis:
+    cmd_action beinhaltet:
+        action_A:
+          
+       action_B:
+         
+       action_C:
  */
     g_free(find_path);
 
@@ -643,18 +886,50 @@ static void on_search_button_clicked(GtkButton *button, gpointer user_data)
 
     /* 7. ---- Kommando zusammenbauen ------------------------------------------------------ */
     gchar *full_cmd = g_strdup_printf("%s; exec bash", find_cmd); //!?!
-
+//    gchar *full_cmd = g_strdup_printf("%s", find_cmd);  // ';' ist hier notwendig
     /* komplettes Kommando ausgeben */
-    g_print("command: %s %s %s\n", glob_term_name, term_option, full_cmd);  //zum testen !!
-
-    /* 8.---- Terminal ... ----------------------------------------------------------------- */
-    start_terminal_for_output(term_option, full_cmd); // mit Übergebe der Werte
+    g_print("command: %s %s %s\n", glob_term_name, term_option, full_cmd);
+    /* 8.---- Terminal abhängig der Einstellungen starten --------------------------------- */
 
 
 
 
+    if (!g_cfg.use_tmux) { // In Einstellungen - tmux ist nicht aktiviert, Standard Terminal verwenden
+        start_terminal_for_output(term_option, full_cmd); // mit Übergebe der Werte
+    /* tmux versenden: */
+    } else {
+        /* tmux-Session-Status anhand des exit_codes abfragen */
+        TmuxSessionStatus status = { .exit_code = -1, .output = NULL, .error = NULL };; // Vorgabewerte vor Prüfung
+        check_tmux_session_status(&status);
+        g_print("Exit_code = %d\n", status.exit_code);
 
+                                       // 0=0=Session existiert
+                                       // 1=256=Session existiert nicht
+                                       // 2=512
+                                       // <0=?=echter Fehler
 
+         /* Session existiert: */
+        if (status.exit_code == 0) {  
+            gboolean pane_ok   = check_tmux_session_has_pane();
+            gboolean client_ok = check_tmux_session_has_client();
+            /* Pane und Client vorhanden */
+            if (pane_ok && client_ok) {
+                continue_tmux_sendkeys(term_option, full_cmd);
+            } else {
+                /* Kein Pane - Session neu starten */
+                g_print("tmux session without pane, restart\n");
+                close_tmux_session_v2();
+                start_tmux_new_session(term_option, full_cmd);
+           }
+          /* Session existiert nicht */
+        } else if (status.exit_code == 256) {
+            start_tmux_new_session(term_option, full_cmd);
+        } else {
+            g_warning("tmux Session check faulty.");
+        }
+    }
+
+    
 
 
     /* term_path war entweder g_strdup(mini_path) oder Rückgabe von g_find_program_in_path() */
@@ -706,7 +981,7 @@ static void on_activate(AdwApplication *app, gpointer)
 
     /* --- Popover‑Menu im Hamburger --- */
     GMenu *menu = g_menu_new();
-//    g_menu_append(menu, _("Einstellungen     "), "app.show-settings");
+    g_menu_append(menu, _("Einstellungen     "), "app.show-settings");
     g_menu_append(menu, _("Infos zu Finden       "), "app.show-about");
     GtkPopoverMenu *popover = GTK_POPOVER_MENU(
     gtk_popover_menu_new_from_model(G_MENU_MODEL(menu)));
@@ -843,9 +1118,9 @@ static void on_activate(AdwApplication *app, gpointer)
 
     /* ---- Schaltfläche Signal verbinden ---- */
            // Methode um Anwendung mit jeglichen Instanzen zu schließen:
-//            g_signal_connect(quit_button, "clicked", G_CALLBACK(on_quitbtn_clicked), app);
+//            g_signal_connect(quit_button, "clicked", G_CALLBACK(on_quitbutton_clicked), app);
       // Nethode um das Fenster zu schließen, egal wieviele Instanzen existieren:
-         g_signal_connect(quit_button, "clicked", G_CALLBACK(on_quitbtn_clicked), adw_win);
+         g_signal_connect(quit_button, "clicked", G_CALLBACK(on_quitbutton_clicked), adw_win);
 
     /* ---- Kontrollkästchen Signal verbinden ---- */
     // Toggel für beide Checkboxen, sowie um den Fokus für die Suchleiste wieder neu zu setzen!
@@ -886,12 +1161,10 @@ int main(int argc, gchar **argv)
     g_resources_register(resources_get_resource());   // reicht für Icon innerhalb der App
 
 
-
     init_environment(); // Environment ermitteln, global in config.c
     init_config();      // Config File laden/erstellen in config.c
-    //   g_print("Settings load miniterm value: %s\n", g_cfg.miniterm_enable ? "true" : "false"); // testen !!
-    //   g_print("Settings load test value: %s\n", g_cfg.test_enable ? "true" : "false"); // testen !!
-    //save_config();     // Config File speichern in config.c // hier noch als Test !!
+       //g_print("Settings load miniterm value: %s\n", g_cfg.miniterm_enable ? "true" : "false"); // testen !!
+       //g_print("Settings load use_tmux value: %s\n", g_cfg.use_tmux ? "true" : "false"); // testen !!
 
     /* ----- Erstelle den Pfad zu den locale-Dateien ----------------------------------- */
     init_flatpak();

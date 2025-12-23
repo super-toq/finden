@@ -10,8 +10,9 @@
  *
  *
  */
-#define APP_VERSION    "0.9.9"
+#define APP_VERSION    "0.9.9"//_2
 #define APP_ID         "free.toq.finden"
+#define APP_NAME       "Finden"
 #define APP_DOMAINNAME "toq-finden"
 
 #define TMUX_SOCKET    "finden_socket"
@@ -145,7 +146,7 @@ static void show_about(GSimpleAction *action, GVariant *parameter, gpointer user
     AdwApplication *app = ADW_APPLICATION(user_data);
     /* About‑Dialog anlegen */
     AdwAboutDialog *about = ADW_ABOUT_DIALOG(adw_about_dialog_new());
-    adw_about_dialog_set_application_name(about, "Finden");
+    adw_about_dialog_set_application_name(about, APP_NAME);
     adw_about_dialog_set_version(about, APP_VERSION);
     adw_about_dialog_set_developer_name(about, "toq");
     adw_about_dialog_set_website(about, "https://github.com/super-toq");
@@ -689,29 +690,29 @@ static void on_quitbutton_clicked(GtkButton *button, gpointer user_data)
     }
 
 /* ----- Callback für beide Kontrollkästchen (Toggle) ----------------------------------- */
-static void on_check_button_toggled(GtkCheckButton *toggle_check, gpointer user_data) 
+static void on_check_button_toggled_and_focus(GtkCheckButton *toggle_check, gpointer user_data) 
 {
     /* UiRefs Zeiger */
     UiRefs *refs = user_data; 
 
-    /* Fokus zurück auf das Suchfeld */
+    /* Fokus zurück auf das Suchfeld, gilt für alle Checkboxen */
     gtk_widget_grab_focus(GTK_WIDGET(refs->search_entry));
 
-    /* Checkboxen-Status herausfinden */
+    /* --- ROOT Checkbox wurde angeklickt */
     if (toggle_check == refs->root_check) 
     {
-        /* Wenn Root deaktiviert muss Snapshots ebenfalls deaktiviert werden */
+        /* Wenn Root deaktiviert wird, muss Snapshots_ignore aktiviert werden */
         if (!gtk_check_button_get_active(refs->root_check))
-         //   gtk_check_button_set_active(refs->snapshots_check, FALSE);     // seit 0.9.9 Deaktiviert
+            gtk_check_button_set_active(refs->snapshots_check, TRUE);
         return;
     }
 
-
+    /* --- SNAPSHOTS Checkbox wurde angeklickt */
     if (toggle_check == refs->snapshots_check)
     {
-        /* Wenn Snapshots aktiviert wird, Root ebenfalls aktivieren */
-        if (gtk_check_button_get_active(refs->snapshots_check))
-         //   gtk_check_button_set_active(refs->root_check, TRUE);           // seit 0.9.9 Deaktiviert
+        /* Wenn Snapshot_ignore deaktiviert wird, muss Root aktiviert werden*/
+        if (!gtk_check_button_get_active(refs->snapshots_check))
+            gtk_check_button_set_active(refs->root_check, TRUE);
         return;
     }
 
@@ -993,7 +994,7 @@ static void on_activate(AdwApplication *app, gpointer)
     /* ----- Adwaita-Fenster ------------------------------------------------------------ */
     AdwApplicationWindow *adw_win = ADW_APPLICATION_WINDOW(adw_application_window_new(GTK_APPLICATION(app))); 
 
-    gtk_window_set_title(GTK_WINDOW(adw_win), "Finden");            // WM-Titel
+    gtk_window_set_title(GTK_WINDOW(adw_win), APP_NAME);            // WM-Titel
     gtk_window_set_default_size(GTK_WINDOW(adw_win), 510, 250);     // Standard-Fenstergröße
     gtk_window_set_resizable(GTK_WINDOW(adw_win), FALSE);           // Skalierung nicht erlauben
 
@@ -1006,13 +1007,13 @@ static void on_activate(AdwApplication *app, gpointer)
 
     /* --- HeaderBar mit TitelWidget erstellt und dem ToolbarView hinzugefügt ----------- */
     AdwHeaderBar *header = ADW_HEADER_BAR(adw_header_bar_new());
-    GtkWidget *title_label = gtk_label_new("Finden");               // Label für Fenstertitel
+    GtkWidget *title_label = gtk_label_new(APP_NAME);               // Label für Fenstertitel
     gtk_widget_add_css_class(title_label, "heading");               // .heading class
     adw_header_bar_set_title_widget(ADW_HEADER_BAR(header), GTK_WIDGET(title_label)); // Label einsetzen
     adw_toolbar_view_add_top_bar(toolbar_view, GTK_WIDGET(header)); // Header-Bar zur Toolbar‑View hinzuf.
 
     /* --- Nav_View mit Inhalt wird zur Hauptseite --- */
-    AdwNavigationPage *main_page = adw_navigation_page_new(GTK_WIDGET(toolbar_view), "Finden");
+    AdwNavigationPage *main_page = adw_navigation_page_new(GTK_WIDGET(toolbar_view), APP_NAME);
     adw_navigation_view_push(nav_view, main_page);
 
     /* --- Hamburger‑Button innerhalb der Headerbar --- */
@@ -1023,7 +1024,7 @@ static void on_activate(AdwApplication *app, gpointer)
     /* --- Popover‑Menu im Hamburger --- */
     GMenu *menu = g_menu_new();
     g_menu_append(menu, _("Einstellungen     "), "app.show-settings");
-    g_menu_append(menu, _("Infos zu Finden       "), "app.show-about");
+    g_menu_append(menu, _("Infos zu Finden   "), "app.show-about");
     GtkPopoverMenu *popover = GTK_POPOVER_MENU(
     gtk_popover_menu_new_from_model(G_MENU_MODEL(menu)));
     gtk_menu_button_set_popover(menu_btn, GTK_WIDGET(popover));
@@ -1123,14 +1124,6 @@ static void on_activate(AdwApplication *app, gpointer)
     gtk_box_append(GTK_BOX(cb_hbox), vbox_inside_right);
     gtk_box_append(GTK_BOX(mainbox), cb_hbox);
 
-
-        /* Flatpak-App-Version hat kein Zugriff auf Root, Checkboxen deaktivieren */
-        if (is_flatpak) 
-        {
-           gtk_widget_set_sensitive(GTK_WIDGET(root_check), FALSE);
-           gtk_widget_set_sensitive(GTK_WIDGET(snapshots_check), FALSE);
-        }
-
     /* --- Kontext-Struct-Block für die Initialisierung einer UI-Referenzstruktur --- */
     /* "refs" zeigt auf neu erstellten “Behälter” für UI-Elemente */
     UiRefs *refs = g_new0(UiRefs, 1); // Speicherort anlegen, erzeuge 1 UiRefs im Heap.
@@ -1140,8 +1133,6 @@ static void on_activate(AdwApplication *app, gpointer)
     refs->flatpak_check   = GTK_CHECK_BUTTON(flatpak_check);       // Pointer zur flatpak-Checkbox
     refs->exact_check     = GTK_CHECK_BUTTON(exact_check);         // ...und Exact_Checkbox.
 
-
-
     /* --- Schaltflächen-WidgetBox hier anlegen: ---------------------------------------- */
     GtkWidget *button_hbox = NULL;
     if (!button_hbox) {
@@ -1150,6 +1141,13 @@ static void on_activate(AdwApplication *app, gpointer)
         gtk_widget_set_hexpand(button_hbox, FALSE);                // nicht ausdehnen!!
         gtk_widget_set_vexpand(button_hbox, FALSE);
         gtk_widget_set_halign(button_hbox, GTK_ALIGN_CENTER);
+    }
+
+    /* Flatpak-App-Version hat kein Zugriff auf Root, Checkboxen deaktivieren */
+    if (is_flatpak) 
+    {
+       gtk_widget_set_sensitive(GTK_WIDGET(root_check), FALSE);
+       gtk_widget_set_sensitive(GTK_WIDGET(snapshots_check), FALSE);
     }
 
     /* --- Schaltfläche-Finden in Thema Akzent ------------------------------------------ */
@@ -1174,9 +1172,10 @@ static void on_activate(AdwApplication *app, gpointer)
 
     /* ---- Kontrollkästchen Signal verbinden ---- */
     // Toggel für beide Checkboxen, sowie um den Fokus für die Suchleiste wieder neu zu setzen!
-    g_signal_connect(snapshots_check, "toggled", G_CALLBACK(on_check_button_toggled), refs);
-    g_signal_connect     (root_check, "toggled", G_CALLBACK(on_check_button_toggled), refs);
-    g_signal_connect    (exact_check, "toggled", G_CALLBACK(on_check_button_toggled), refs);
+    g_signal_connect(snapshots_check, "toggled", G_CALLBACK(on_check_button_toggled_and_focus), refs);
+    g_signal_connect     (root_check, "toggled", G_CALLBACK(on_check_button_toggled_and_focus), refs);
+    g_signal_connect  (flatpak_check, "toggled", G_CALLBACK(on_check_button_toggled_and_focus), refs);
+    g_signal_connect    (exact_check, "toggled", G_CALLBACK(on_check_button_toggled_and_focus), refs);
 
     /* ----- Schaltfläche der Box hinzufügen ----- */
     gtk_box_append(GTK_BOX(button_hbox), quit_button);    

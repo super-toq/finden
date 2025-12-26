@@ -10,7 +10,7 @@
  *
  *
  */
-#define APP_VERSION    "1.0"//_
+#define APP_VERSION    "1.0.1"//_1
 #define APP_ID         "free.toq.finden"
 #define APP_NAME       "Finden"
 #define APP_DOMAINNAME "toq-finden"
@@ -42,7 +42,7 @@ typedef struct {                       // Struktur für Actions_A/B/C [5.x]
        gchar       *find_cmd;
        gchar       *iname_query;
        gchar       *grep;
-       gchar       *flatpak;
+       gchar       *excluded_paths;
 } FindContext;
 typedef struct {                      // Struktur für tmux Sessions
        int          exit_code;
@@ -150,7 +150,7 @@ static void show_about(GSimpleAction *action, GVariant *parameter, gpointer user
     adw_about_dialog_set_application_name(about, APP_NAME);
     adw_about_dialog_set_version(about, APP_VERSION);
     adw_about_dialog_set_developer_name(about, "toq");
-    adw_about_dialog_set_website(about, "https://github.com/super-toq");
+    adw_about_dialog_set_website(about, "https://github.com/super-toq/Finden");
 
     /* Lizenz wird als „custom“ angegeben */
     adw_about_dialog_set_license_type(about, GTK_LICENSE_CUSTOM);
@@ -544,37 +544,16 @@ static void close_tmux_session_v2(void)
 /* ----- Kommando "find" zusammenbauen, zweiter Teil für alle find-Optionen ---> 
  Außerhalb von on_search_button_clicked, da sonst "nested-functions" innerhalb einer Funktion ensteht! --- */
 
-/* ----- Variablen ----- */ 
-
-/* allgemeine Excludes der Suchfunktion */
-const gchar *excluded_proc  = " -path \"/proc\" -prune -o";                           // /proc
-const gchar *excluded_run   = " -path \"/run\" -prune -o";                            // /run
-const gchar *excluded_snap  = " -path \"/.snapshots\" -prune -o";                     // Snapshots
-const gchar *excluded_trash = " -path \"${HOME}/.local/share/Trash\" -prune -o";      // Trash
-const gchar *excluded_cont1 = " -path \"${HOME}/.local/share/containers\" -prune -o"; // Containers1
-const gchar *excluded_flat  =                                                         // Flatpak:
-" -path \"/var/lib/flatpak\" -prune -o -path \"${HOME}/.local/share/flatpak\" -prune -o -path \"${HOME}/.var/app\" -prune -o";
-
-
 /* 5.A  find Kommando:   ([A] ohne Root, nur im Homeverzeichnis)  */
 static void action_A(const gchar *find_path, const gchar *query, UiRefs *refs, FindContext *contexts)  
-{ // find_path u. query als Argumente bekommen.
+{ // context-Inhalte, find_path u. query als Argumente bekommen.
 
-    gboolean flatpak_ignore_active = TRUE;
     gboolean exact_active          = FALSE;
     const gchar *iname_option      = NULL;
     gchar *escaped_query = g_shell_quote(query); // Funktion um autom. die korrekten Quotes zu setzen ("'...)
 
-
-    if (GTK_IS_CHECK_BUTTON(refs->flatpak_check)) flatpak_ignore_active = gtk_check_button_get_active(refs->flatpak_check);
-    if (GTK_IS_CHECK_BUTTON(refs->exact_check)) exact_active = gtk_check_button_get_active(refs->exact_check);
-    /* Checkbox Flatpak ignorieren */
-    if (flatpak_ignore_active) { 
-        contexts->flatpak = g_strdup(excluded_flat); 
-    } else {
-        contexts->flatpak = g_strdup("");
-    }
     /* Checkbox Exact-Match */
+    if (GTK_IS_CHECK_BUTTON(refs->exact_check)) exact_active = gtk_check_button_get_active(refs->exact_check);
     if (exact_active) {
         iname_option = "-name";
         contexts->iname_query = g_strdup_printf("%s %s", iname_option, escaped_query);
@@ -585,12 +564,12 @@ static void action_A(const gchar *find_path, const gchar *query, UiRefs *refs, F
         contexts->grep       = g_strdup_printf(" | grep -i --color=always -- %s", escaped_query);
     }
     
-    contexts->find_cmd = g_strdup_printf("%s %s %s %s %s %s -print %s", 
-        find_path, g_get_home_dir(), excluded_cont1, excluded_trash, contexts->flatpak, contexts->iname_query, contexts->grep); 
+    contexts->find_cmd = g_strdup_printf("%s %s %s %s -print %s", 
+        find_path, g_get_home_dir(), contexts->excluded_paths, contexts->iname_query, contexts->grep); 
                /* Funktion g_get_home_dir() ist von GLib, 
                     um innerhalb dieses Aufrufes eine Zeichenkette in "const gchar" zu ermitteln */
 
-    g_free(contexts->flatpak);
+    g_free(contexts->excluded_paths);
     g_free(contexts->iname_query);
     g_free(contexts->grep);
     g_free(escaped_query);
@@ -601,60 +580,12 @@ static void action_A(const gchar *find_path, const gchar *query, UiRefs *refs, F
 static void action_B(const gchar *find_path, const gchar *query, UiRefs *refs, FindContext *contexts) 
 { // find_path u. query als Argumente bekommen.
 
-    gboolean flatpak_ignore_active = TRUE;
     gboolean exact_active          = FALSE;
     const gchar *iname_option      = NULL;
     gchar *escaped_query = g_shell_quote(query);
 
-    if (GTK_IS_CHECK_BUTTON(refs->flatpak_check)) flatpak_ignore_active = gtk_check_button_get_active(refs->flatpak_check);
-    if (GTK_IS_CHECK_BUTTON(refs->exact_check)) exact_active = gtk_check_button_get_active(refs->exact_check);
-    /* Checkbox Flatpak ignorieren */
-    if (flatpak_ignore_active) { 
-        contexts->flatpak = g_strdup(excluded_flat); 
-    } else {
-        contexts->flatpak = g_strdup("");
-    }
     /* Checkbox Exact-Match */
-        if (exact_active) {
-        iname_option = "-name";
-        contexts->iname_query = g_strdup_printf("%s %s", iname_option, escaped_query);
-        contexts->grep       = g_strdup_printf(" | grep -i --color=always -- %s", escaped_query);
-    } else {
-        iname_option = "-iname";
-        contexts->iname_query = g_strdup_printf("%s '*%s*'", iname_option, query); // hier gewollt kein escaped_query
-        contexts->grep       = g_strdup_printf(" | grep -i --color=always -- %s", escaped_query);
-    }
-
-    contexts->find_cmd = g_strdup_printf(
-    "run0 --background=0 --unit=finden %s / %s %s %s %s %s %s %s -print %s",
-           find_path, excluded_proc, excluded_run, excluded_snap, excluded_cont1, excluded_trash, 
-                                                             contexts->flatpak, contexts->iname_query, contexts->grep);
-
-    g_free(contexts->flatpak);
-    g_free(contexts->iname_query);
-    g_free(contexts->grep);
-    g_free(escaped_query);
-} // Hinweis: g_free(find_cmd) erfolgt in Suchfunktion;
-
-
-/* 5.C  find Kommando:   ([C] Root + Snapshots)  */
-static void action_C(const gchar *find_path, const gchar *query, UiRefs *refs, FindContext *contexts) 
-{ // find_path u. query als Argumente bekommen.
-
-    gboolean flatpak_ignore_active = TRUE;
-    gboolean exact_active          = FALSE;
-    const gchar *iname_option      = NULL;
-    gchar *escaped_query = g_shell_quote(query);
-
-    if (GTK_IS_CHECK_BUTTON(refs->flatpak_check)) flatpak_ignore_active = gtk_check_button_get_active(refs->flatpak_check);
     if (GTK_IS_CHECK_BUTTON(refs->exact_check)) exact_active = gtk_check_button_get_active(refs->exact_check);
-    /* Checkbox Flatpak ignorieren */
-    if (flatpak_ignore_active) { 
-        contexts->flatpak = g_strdup(excluded_flat); 
-    } else {
-        contexts->flatpak = g_strdup("");
-    }
-    /* Checkbox Exact-Match */
     if (exact_active) {
         iname_option = "-name";
         contexts->iname_query = g_strdup_printf("%s %s", iname_option, escaped_query);
@@ -666,11 +597,41 @@ static void action_C(const gchar *find_path, const gchar *query, UiRefs *refs, F
     }
 
     contexts->find_cmd = g_strdup_printf(
-    "run0 --background=0 --unit=finden %s / %s %s %s %s %s %s -print %s",
-                          find_path, excluded_proc, excluded_run, excluded_cont1, excluded_trash, 
-                                                                 contexts->flatpak, contexts->iname_query, contexts->grep);
+    "run0 --background=0 --unit=finden %s / %s %s -print %s",
+           find_path, contexts->excluded_paths, contexts->iname_query, contexts->grep);
 
-    g_free(contexts->flatpak);
+    g_free(contexts->excluded_paths);
+    g_free(contexts->iname_query);
+    g_free(contexts->grep);
+    g_free(escaped_query);
+} // Hinweis: g_free(find_cmd) erfolgt in Suchfunktion;
+
+
+/* 5.C  find Kommando:   ([C] Root + Snapshots)  */
+static void action_C(const gchar *find_path, const gchar *query, UiRefs *refs, FindContext *contexts) 
+{ // find_path u. query als Argumente bekommen.
+
+    gboolean exact_active          = FALSE;
+    const gchar *iname_option      = NULL;
+    gchar *escaped_query = g_shell_quote(query);
+
+    /* Checkbox Exact-Match */
+    if (GTK_IS_CHECK_BUTTON(refs->exact_check)) exact_active = gtk_check_button_get_active(refs->exact_check);
+    if (exact_active) {
+        iname_option = "-name";
+        contexts->iname_query = g_strdup_printf("%s %s", iname_option, escaped_query);
+        contexts->grep       = g_strdup_printf(" | grep -i --color=always -- %s", escaped_query);
+    } else {
+        iname_option = "-iname";
+        contexts->iname_query = g_strdup_printf("%s '*%s*'", iname_option, query); // hier gewollt kein escaped_query
+        contexts->grep       = g_strdup_printf(" | grep -i --color=always -- %s", escaped_query);
+    }
+
+    contexts->find_cmd = g_strdup_printf(
+    "run0 --background=0 --unit=finden %s / %s %s -print %s",
+                        find_path, contexts->excluded_paths, contexts->iname_query, contexts->grep);
+
+    g_free(contexts->excluded_paths);
     g_free(contexts->iname_query);
     g_free(contexts->grep);
     g_free(escaped_query);
@@ -809,7 +770,7 @@ static void on_search_button_clicked(GtkButton *button, gpointer user_data)
         mode = ROOT_RUN0_SNAPSHOTS_OK;
     }
 
-    /* ---- 4. Schalter aus 3.x - für ROOT, RUN0, SNAPSHOTS + Find-Kommande ------------- */
+    /* 4. ---- Schalter aus 3.x - für ROOT, RUN0, SNAPSHOTS + Find-Kommande ------------- */
     void (*cmd_action)(const gchar *, const gchar *, UiRefs *, FindContext *) = NULL;
     cmd_action = action_A; // Find-Kommando [A] wird in "static void action_A" definiert
     // Diese Maßnahme war notwendig, da sonst nested-Fuction innerhalb einer Funktion entsteht!
@@ -870,11 +831,56 @@ static void on_search_button_clicked(GtkButton *button, gpointer user_data)
             /* find Kommando [C] verwenden  */
             cmd_action = action_C; // action_C wird in "static void action_C" definiert
             break;
-    } // Switch(mode) Ende
+    }
 
-    /* 5. ---- Aktion für das find-Kommando aufrufen ------------------------------------ */
-    FindContext contexts = {0}; // Hinweis: Zeiger wird in cmd_action verwendet
-    if (cmd_action) cmd_action(find_path, query, refs, &contexts);  
+    /* 5. ---- Exclude Pfade definieren ------------------------------------------------- */
+    /* allgemeine Excludes der Suchfunktion */
+    const gchar *excluded_proc  = " -path \"/proc\" -prune -o";                           // /proc
+    const gchar *excluded_vloc  = " -path \"/var/lock\" -prune -o";                       // /var/lock
+    const gchar *excluded_run   = " -path \"/run\" -prune -o";                            // /run
+    const gchar *excluded_snap  = " -path \"/.snapshots\" -prune -o";                     // Snapshots
+    const gchar *excluded_trash = " -path \"${HOME}/.local/share/Trash\" -prune -o";      // Trash
+    const gchar *excluded_cont1 = " -path \"${HOME}/.local/share/containers\" -prune -o"; // Containers1
+    const gchar *excluded_cont2 = " -path \"/var/lib/containers\" -prune -o";             // Containers2
+    const gchar *excluded_cont3 = " -path \"/var/lib/containers\" -prune -o";             // Containers2
+    const gchar *excluded_cont4 = " -path \"/var/lib/docker/containers\" -prune -o";      // Containers3
+    const gchar *excluded_flat  =                                                         // Flatpak:
+    " -path \"/var/lib/flatpak\" -prune -o -path \"${HOME}/.local/share/flatpak\" -prune -o -path \"${HOME}/.var/app\" -prune -o";
+
+    /* Variablenstruktur FindContext bereitstellen */
+    FindContext contexts = {0};                 // Hinweis: Zeiger wird in cmd_action verwendet
+
+    /* --- Checkbox Containers-ignorieren --- */
+    gchar *excluded_containers = NULL;
+// - Checkbox Containers_ignore noch einbauen !!!
+//    gboolean containers_ignore_active = TRUE;
+//    if (GTK_IS_CHECK_BUTTON(refs->containers_check)) containers_ignore_active = 
+//        gtk_check_button_get_active(refs->containers_check);
+//    if (containers_ignore_active) { 
+        excluded_containers = g_strdup_printf("%s %s %s %s",
+                              excluded_cont1, excluded_cont2, excluded_cont3, excluded_cont4); //aktiv
+//    } else {
+//        excluded_containers = g_strdup("");     // containers_ignore inaktiv
+//    }
+
+    /* --- Checkbox Flatpak-ignorieren --- */
+    gchar *excl_flatpak = NULL;
+    gchar *excluded_paths = NULL;
+    gboolean flatpak_ignore_active = TRUE;
+    if (GTK_IS_CHECK_BUTTON(refs->flatpak_check)) flatpak_ignore_active = 
+        gtk_check_button_get_active(refs->flatpak_check);
+    if (flatpak_ignore_active) { 
+        excl_flatpak = g_strdup(excluded_flat); // flatpak_ignore aktiv
+    } else {
+        excl_flatpak = g_strdup("");            // flatpak_ignore inaktiv
+    }
+
+    /* --- Excludes zusammenbauen --- */
+    contexts.excluded_paths = g_strdup_printf("%s %s %s %s %s %s %s", 
+    excluded_proc, excluded_vloc, excluded_run, excluded_snap, excluded_trash, excluded_containers, excl_flatpak);
+
+    /* 6. ---- entspr.Aktion für das find-Kommando aufrufen ----------------------------- */
+    if (cmd_action) cmd_action(find_path, query, refs, &contexts); // Werte mit cmd_action übergeben
 
  /* Hinweis:
     cmd_action beinhaltet:
@@ -886,7 +892,7 @@ static void on_search_button_clicked(GtkButton *button, gpointer user_data)
  */
     g_free(find_path);
 
-    /* 6. ---- Terminal im System auswählen --------------------------------------------- */
+    /* 7. ---- Terminal im System auswählen --------------------------------------------- */
     gchar *term_path = NULL;
 
       /* (aus früheren T2. miniterm = false, Terminalauswahl hier einbauen !!)  */
@@ -906,7 +912,7 @@ static void on_search_button_clicked(GtkButton *button, gpointer user_data)
       }
 //   } //Ende von Else
 
-    /* 7. Erweiterte Terminal-Option bestimmen ------------------------------------------ */
+    /* 8. Erweiterte Terminal-Option bestimmen ------------------------------------------ */
     const gchar *term_option;     // entsprechende zum Terminal passende Option erstellen
     if (g_str_has_suffix(glob_term_name, "gnome-terminal") ||
           g_str_has_suffix(glob_term_name, "toq-miniterm") ||
@@ -924,15 +930,12 @@ static void on_search_button_clicked(GtkButton *button, gpointer user_data)
     else
        term_option = "-e";     // alle anderen, xterm, Standard-Option: "-e"
 
-    /* 7. ---- Kommando zusammenbauen --------------------------------------------------- */
+    /* 9. ---- Kommando zusammenbauen --------------------------------------------------- */
     gchar *full_cmd = g_strdup_printf("bash -c \"%s; exec bash\"", contexts.find_cmd);
-    /* komplettes Kommando ausgeben */
+    /* 9.1 komplettes Kommando ausgeben */
     g_print("command: %s %s %s\n", glob_term_name, term_option, full_cmd);
-    /* 8.---- Terminal abhängig der Einstellungen starten ------------------------------- */
 
-
-
-
+    /* 10.---- Terminal abhängig der Einstellungen starten ------------------------------- */
     if (!g_cfg.use_tmux) { // In Einstellungen - tmux ist nicht aktiviert, Standard Terminal verwenden
         start_terminal_for_output(term_option, full_cmd); // mit Übergebe der Werte
     /* tmux versenden: */

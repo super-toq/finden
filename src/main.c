@@ -149,40 +149,27 @@ static void show_about(GSimpleAction *action, GVariant *parameter, gpointer user
     AdwAboutDialog *about = ADW_ABOUT_DIALOG(adw_about_dialog_new());
     adw_about_dialog_set_application_name(about, APP_NAME);
     adw_about_dialog_set_version(about, APP_VERSION);
-    adw_about_dialog_set_developer_name(about, "toq");
+    adw_about_dialog_set_developer_name(about, "super-toq");
     adw_about_dialog_set_website(about, "https://github.com/super-toq/Finden");
 
     /* Lizenz wird als „custom“ angegeben */
-    adw_about_dialog_set_license_type(about, GTK_LICENSE_CUSTOM);
+    adw_about_dialog_set_license_type(about, GTK_LICENSE_BSD);
     adw_about_dialog_set_license(about,
-        "BSD 2-Clause License\n\n"
-        "Copyright (c) 2025, toq\n"
-        "Redistribution and use in source and binary forms, with or without "
-        "modification, are permitted provided that the following conditions are met: "
-        "1. Redistributions of source code must retain the above copyright notice, this "
-        "list of conditions and the following disclaimer.\n"
-        "2. Redistributions in binary form must reproduce the above copyright notice, "
-        "this list of conditions and the following disclaimer in the documentation"
-        "and/or other materials provided with the distribution.\n\n"
-        "THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ''AS IS'' "
-        "AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE "
-        "IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE "
-        "DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE "
-        "FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL "
-        "DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR "
-        "SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER "
-        "CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, "
-        "OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE "
-        "OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n\n"
-        "Application Icon by SVG Repo. \n"
-        "https://www.svgrepo.com \n"
+        "Copyright © 2025, super-toq\n\n"
+        "This program comes WITHOUT ANY WARRANTY.\n"
+        "Follow the link to view the license details: "
+        "<a href=\"https://opensource.org/license/BSD-2-Clause\"><b>BSD 2-Clause License</b></a>\n"
+        "\n"
+        "Application Icons by SVG Repo. \n"
+        "<a href=\"https://www.svgrepo.com\">(www.svgrepo.com)</a> \n"
         "Thanks to SVG Repo for sharing their free icons, "
         "we appreciate your generosity and respect your work.\n"
         "The icons are licensed under the \n"
-        "Creative Commons Attribution License.\n"
-        "Follow the link to view details of the CC Attribution License: \n"
-        "https://www.svgrepo.com/page/licensing/#CC%20Attribution \n");
-
+        "<a href=\"https://www.svgrepo.com/page/licensing/#CC%20Attribution\">"
+        "Creative Commons Attribution License.</a> \n"
+        "Colours, shapes, and sizes of the symbols (icons) have been slightly modified from the original, "
+        "some symbols have been combined with each other.\n"
+        );
 //    adw_about_dialog_set_translator_credits(about, "toq: deutsch\n toq: englisch");
     adw_about_dialog_set_application_icon(about, APP_ID);   //IconName
 

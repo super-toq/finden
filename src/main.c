@@ -10,7 +10,7 @@
  *
  *
  */
-#define APP_VERSION    "1.0.1"//_2
+#define APP_VERSION    "1.0.1"//_5
 #define APP_ID         "free.toq.finden"
 #define APP_NAME       "Finden"
 #define APP_DOMAINNAME "toq-finden"
@@ -134,8 +134,7 @@ static void show_alert_dialog(GtkWindow *parent, const gchar *title, const gchar
     adw_alert_dialog_set_default_response(dialog, "ok");
 
     /* Antwort‑Signal verbinden */
-    g_signal_connect(dialog, "response",
-                      G_CALLBACK(on_alert_dialog_response), NULL);
+    g_signal_connect(dialog, "response", G_CALLBACK(on_alert_dialog_response), NULL);
 
     /* Dialog präsentieren */
     adw_dialog_present(ADW_DIALOG(dialog), GTK_WIDGET(parent));

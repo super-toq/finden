@@ -91,10 +91,10 @@ install_data(join_paths( 'en_GB.mo'),
   rename: mo_file
 )
 # PL
-po_file_pl_PL = join_paths(po_dir, 'toq-finden_pl_PL.po')
-run_command('msgfmt', po_file_pl_PL, '--output-file=' + join_paths('pl_PL.mo'), check : true)
-install_data(join_paths( 'pl_PL.mo'),
-  install_dir: join_paths(get_option('prefix'), 'share', 'locale', 'pl_PL', 'LC_MESSAGES'),
+po_file_pl = join_paths(po_dir, 'toq-finden_pl.po')
+run_command('msgfmt', po_file_pl, '--output-file=' + join_paths('pl.mo'), check : true)
+install_data(join_paths( 'pl.mo'),
+  install_dir: join_paths(get_option('prefix'), 'share', 'locale', 'pl', 'LC_MESSAGES'),
   rename: mo_file
 )
 

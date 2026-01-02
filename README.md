@@ -1,5 +1,4 @@
-## Finden
-\
+## Finden  
 A small Gnome desktop application to find items on your computer that you are looking for.  
 
 ![finden](finden_img1.png?raw=true)  
